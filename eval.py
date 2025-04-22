@@ -1,0 +1,67 @@
+from collections import Counter, defaultdict
+import json
+import matplotlib.pyplot as plt
+
+
+data = ['data/trial_data.jsonl', 'data/development_data.jsonl', 'data/training_data.jsonl', 'data/validation_data.jsonl']
+data = data[0:3]
+
+task_a_label = []
+task_b_label = []
+
+for file in data:
+    with open(file, 'r') as f:
+        lines = f.readlines()
+        for line in lines:
+            line = json.loads(line)
+            task_a_label.append(int(line['task_a_label']))
+            task_b_label.append(float(line['task_b_label']))
+            
+
+# plot task_a_label
+def plot_frequency(task_a_label, task_b_label):
+
+    count_a = Counter(task_a_label)
+    count_b = Counter(task_b_label)
+
+
+    plt.figure(figsize=(10, 5))
+    plt.subplot(1, 2, 1)
+    plt.bar(count_a.keys(), count_a.values())
+    plt.xticks(list(count_a.keys()))
+    plt.title('Task A Label')
+    plt.xlabel('Label')
+    plt.ylabel('Frequency')
+    plt.subplot(1, 2, 2)
+    plt.scatter(count_b.keys(), count_b.values())
+    plt.title('Task B Label')
+    plt.xlabel('Label')
+    plt.ylabel('Frequency')
+    plt.savefig('Frequency.png')
+
+# plot_frequency(task_a_label, task_b_label)
+
+def plot_frequencypertask(task_a_label, task_b_label):
+    # Box plot, X axis is task_a_label, Y axis is task_b_label matched to task_a_label
+    task_a_validation = defaultdict(list)
+    for i in range(len(task_a_label)):
+        task_a_validation[task_a_label[i]].append(task_b_label[i])
+    
+    
+    # sort task_a_validation by key
+    task_a_validation = dict(sorted(task_a_validation.items()))
+    print(task_a_validation)
+    
+    plt.figure(figsize=(10, 5))
+    plt.boxplot(task_a_validation.values())
+    plt.xticks(list(task_a_validation.keys()))
+    plt.title('Task A Label vs Task B Label')
+    plt.xlabel('Task A Label')
+    plt.ylabel('Task B Label')
+    plt.savefig('Task_A_vs_Task_B.png')
+
+plot_frequencypertask(task_a_label, task_b_label)
+
+
+
+        
