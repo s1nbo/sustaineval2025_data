@@ -8,6 +8,7 @@ data = data[0:3]
 
 task_a_label = []
 task_b_label = []
+year = []
 
 for file in data:
     with open(file, 'r') as f:
@@ -15,7 +16,8 @@ for file in data:
         for line in lines:
             line = json.loads(line)
             task_a_label.append(int(line['task_a_label']))
-            task_b_label.append(float(line['task_b_label']))
+            task_b_label.append(round(float(line['task_b_label']), 4))
+            year.append(int(line['year']))
             
 
 # plot task_a_label
@@ -50,7 +52,6 @@ def plot_frequencypertask(task_a_label, task_b_label):
     
     # sort task_a_validation by key
     task_a_validation = dict(sorted(task_a_validation.items()))
-    print(task_a_validation)
     
     plt.figure(figsize=(10, 5))
     plt.boxplot(task_a_validation.values())
@@ -60,8 +61,27 @@ def plot_frequencypertask(task_a_label, task_b_label):
     plt.ylabel('Task B Label')
     plt.savefig('Task_A_vs_Task_B.png')
 
-plot_frequencypertask(task_a_label, task_b_label)
+# plot_frequencypertask(task_a_label, task_b_label)
+
+
+# Find correlation between task_a_label and task_b_label and given year in data
+def plot_correlation(task_a_label, task_b_label, year):
+
+    year_list = [[] for _ in range(6)]
+    for i in range(len(year)):
+        year_list[(year[i]-2016)].append(task_b_label[i])
+    
+    
+    plt.figure(figsize=(10, 5))
+    plt.boxplot(year_list)
+    # increase the x axis tick names by 2015
+    plt.xticks([1, 2, 3, 4, 5, 6], ['2016', '2017', '2018', '2019', '2020', '2021'])
+    plt.title('Task B Label vs Year')
+    plt.xlabel('Year')
+    plt.ylabel('Task B Label')
+    plt.savefig('Task_B_vs_Year.png')
+
+plot_correlation(task_a_label, task_b_label, year)
 
 
 
-        
