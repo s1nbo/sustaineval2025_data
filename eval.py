@@ -70,7 +70,7 @@ def word_count_analysis(word_count:dict, occurence:int):
 
 # save the word count to a file
 def save_word_count(word_count:dict, occurence:int, a_label:int):
-    with open('word_count_5+.txt', 'a') as f:
+    with open('word_count.txt', 'a') as f:
         f.write(f'Class {a_label}\n')
         f.write(f'Length of word_count: {len(word_count)}\n')
         f.write(f'Length of word_count with more than {occurence} occurences: {len([key for key in word_count.keys() if word_count[key] > occurence])}\n')
@@ -78,3 +78,18 @@ def save_word_count(word_count:dict, occurence:int, a_label:int):
         for key, value in sorted(word_count.items(), key=lambda x: x[1], reverse=True)[:10]:
             f.write(f'{key}: {value}\n')
         f.write('\n')
+
+def length(word_count:dict):
+    # sort word_count by key
+    word_count = dict(sorted(word_count.items()))
+    # box plot X axis is task_a_label, Y axis is length of data
+    plt.figure(figsize=(10, 5))
+    plt.boxplot(word_count.values())
+    plt.xticks(list(word_count.keys()))
+    plt.title('Task A Label vs Length of Data')
+    plt.xlabel('Task A Label')
+    plt.ylabel('Length of Data')
+    plt.savefig('Task_A_vs_Length_of_Data.png')
+    plt.show()
+
+
