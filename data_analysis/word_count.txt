@@ -1,0 +1,300 @@
+Class 1
+Length of word_count: 887
+Length of word_count with more than 1 occurences: 305
+Ten most common words:
+und: 259
+der: 186
+die: 161
+in: 95
+im: 60
+den: 59
+für: 58
+zu: 57
+mit: 54
+wir: 49
+
+Class 2
+Length of word_count: 875
+Length of word_count with more than 1 occurences: 311
+Ten most common words:
+und: 222
+der: 166
+die: 161
+in: 68
+von: 66
+zu: 59
+im: 58
+den: 58
+wir: 54
+für: 51
+
+Class 3
+Length of word_count: 873
+Length of word_count with more than 1 occurences: 304
+Ten most common words:
+der: 188
+und: 183
+die: 161
+in: 86
+den: 65
+werden: 62
+zu: 60
+für: 50
+wir: 49
+mit: 46
+
+Class 4
+Length of word_count: 817
+Length of word_count with more than 1 occurences: 288
+Ten most common words:
+und: 192
+der: 154
+die: 133
+in: 79
+wir: 67
+von: 66
+den: 55
+werden: 52
+mit: 48
+zu: 48
+
+Class 5
+Length of word_count: 598
+Length of word_count with more than 1 occurences: 254
+Ten most common words:
+und: 212
+der: 180
+die: 168
+für: 70
+in: 65
+den: 51
+des: 51
+das: 44
+ist: 36
+im: 33
+
+Class 6
+Length of word_count: 799
+Length of word_count with more than 1 occurences: 300
+Ten most common words:
+und: 244
+die: 139
+der: 136
+in: 77
+den: 62
+zu: 61
+für: 57
+werden: 57
+im: 44
+wir: 37
+
+Class 7
+Length of word_count: 701
+Length of word_count with more than 1 occurences: 271
+Ten most common words:
+und: 203
+die: 152
+der: 139
+werden: 75
+in: 71
+den: 62
+zu: 47
+des: 43
+im: 40
+von: 39
+
+Class 8
+Length of word_count: 677
+Length of word_count with more than 1 occurences: 261
+Ten most common words:
+der: 193
+die: 144
+und: 129
+in: 53
+für: 53
+im: 46
+des: 45
+den: 43
+sind: 41
+ist: 38
+
+Class 9
+Length of word_count: 748
+Length of word_count with more than 1 occurences: 275
+Ten most common words:
+und: 187
+die: 144
+der: 137
+den: 78
+in: 61
+mit: 60
+wir: 48
+im: 47
+zu: 45
+werden: 35
+
+Class 10
+Length of word_count: 935
+Length of word_count with more than 1 occurences: 283
+Ten most common words:
+und: 221
+die: 180
+der: 152
+in: 83
+von: 59
+zu: 54
+für: 53
+den: 51
+wir: 48
+mit: 45
+
+Class 11
+Length of word_count: 933
+Length of word_count with more than 1 occurences: 325
+Ten most common words:
+und: 210
+der: 171
+die: 151
+in: 78
+den: 74
+zu: 71
+von: 64
+werden: 54
+ist: 47
+im: 46
+
+Class 12
+Length of word_count: 843
+Length of word_count with more than 1 occurences: 285
+Ten most common words:
+und: 137
+der: 127
+die: 108
+in: 63
+wir: 56
+den: 54
+zu: 49
+von: 48
+im: 41
+werden: 40
+
+Class 13
+Length of word_count: 850
+Length of word_count with more than 1 occurences: 275
+Ten most common words:
+der: 144
+und: 127
+die: 124
+von: 70
+den: 62
+in: 61
+zu: 56
+wir: 52
+für: 45
+mit: 40
+
+Class 14
+Length of word_count: 788
+Length of word_count with more than 1 occurences: 267
+Ten most common words:
+und: 209
+die: 160
+der: 130
+in: 76
+den: 61
+werden: 53
+für: 42
+zu: 41
+mit: 40
+von: 38
+
+Class 15
+Length of word_count: 800
+Length of word_count with more than 1 occurences: 274
+Ten most common words:
+und: 185
+der: 150
+die: 147
+für: 61
+von: 61
+in: 58
+zu: 51
+des: 44
+ist: 40
+den: 39
+
+Class 16
+Length of word_count: 831
+Length of word_count with more than 1 occurences: 295
+Ten most common words:
+und: 215
+die: 148
+der: 106
+in: 57
+zu: 56
+für: 46
+den: 45
+werden: 37
+mit: 37
+das: 34
+
+Class 17
+Length of word_count: 707
+Length of word_count with more than 1 occurences: 260
+Ten most common words:
+und: 151
+der: 146
+die: 143
+in: 63
+von: 55
+wir: 54
+für: 44
+sind: 42
+ist: 42
+auf: 39
+
+Class 18
+Length of word_count: 852
+Length of word_count with more than 1 occurences: 280
+Ten most common words:
+und: 194
+der: 146
+die: 129
+in: 85
+für: 66
+mit: 55
+den: 50
+im: 47
+das: 41
+sich: 40
+
+Class 19
+Length of word_count: 697
+Length of word_count with more than 1 occurences: 266
+Ten most common words:
+und: 208
+der: 163
+die: 156
+in: 74
+den: 61
+des: 52
+zu: 47
+ist: 45
+für: 44
+im: 43
+
+Class 20
+Length of word_count: 751
+Length of word_count with more than 1 occurences: 263
+Ten most common words:
+und: 225
+der: 161
+die: 144
+von: 58
+werden: 51
+zu: 49
+ist: 42
+den: 41
+in: 39
+des: 34
+

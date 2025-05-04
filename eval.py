@@ -20,7 +20,7 @@ def plot_frequency(task_a_label, task_b_label):
     plt.title('Task B Label')
     plt.xlabel('Label')
     plt.ylabel('Frequency')
-    plt.savefig('/graphs/Frequency.png')
+    plt.savefig('Frequency.png')
 
 
 # Box plot, X axis is task_a_label, Y axis is task_b_label matched to task_a_label
@@ -59,5 +59,22 @@ def plot_correlation(task_b_label, year):
 
 # plot word count for total words
 
+def word_count_analysis(word_count:dict, occurence:int):
+        print(f'Length of word_count: {len(word_count)}')
+        f''' give length of word_count with more than {occurence} occurences'''
+        print(len([key for key in word_count.keys() if word_count[key] > occurence]))
+        print('Ten most common words:')
+        for key, value in sorted(word_count.items(), key=lambda x: x[1], reverse=True)[:10]:
+            print(f'{key}: {value}')
 
 
+# save the word count to a file
+def save_word_count(word_count:dict, occurence:int, a_label:int):
+    with open('word_count_5+.txt', 'a') as f:
+        f.write(f'Class {a_label}\n')
+        f.write(f'Length of word_count: {len(word_count)}\n')
+        f.write(f'Length of word_count with more than {occurence} occurences: {len([key for key in word_count.keys() if word_count[key] > occurence])}\n')
+        f.write('Ten most common words:\n')
+        for key, value in sorted(word_count.items(), key=lambda x: x[1], reverse=True)[:10]:
+            f.write(f'{key}: {value}\n')
+        f.write('\n')

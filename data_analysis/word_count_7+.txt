@@ -1,0 +1,300 @@
+Class 1
+Length of word_count: 495
+Length of word_count with more than 1 occurences: 125
+Ten most common words:
+nachhaltigen: 15
+nachhaltige: 9
+ökologischen: 8
+wirtschaftlichen: 8
+nachhaltig: 5
+strategischen: 5
+verankert: 5
+natürlichen: 5
+unterstützen: 5
+kontinuierlich: 5
+
+Class 2
+Length of word_count: 494
+Length of word_count with more than 1 occurences: 113
+Ten most common words:
+ökologischen: 8
+sozialen: 7
+nachhaltigen: 7
+nachhaltige: 6
+ökologische: 6
+positiven: 6
+langfristig: 5
+verbundenen: 5
+gegenüber: 5
+regionalen: 5
+
+Class 3
+Length of word_count: 487
+Length of word_count with more than 1 occurences: 112
+Ten most common words:
+nachhaltigen: 12
+nachhaltige: 12
+definiert: 8
+relevanten: 7
+regelmäßig: 6
+überprüft: 6
+insbesondere: 6
+langfristigen: 6
+festgelegt: 6
+erreicht: 5
+
+Class 4
+Length of word_count: 457
+Length of word_count with more than 1 occurences: 100
+Ten most common words:
+ökologische: 10
+ökologischen: 8
+zusammen: 8
+überwiegend: 7
+sozialen: 7
+regionale: 7
+nachhaltige: 6
+beispielsweise: 6
+berücksichtigt: 5
+arbeiten: 5
+
+Class 5
+Length of word_count: 337
+Length of word_count with more than 1 occurences: 106
+Ten most common words:
+strategische: 11
+nachhaltige: 9
+regelmäßig: 9
+nachhaltigen: 9
+kontrolliert: 7
+jeweiligen: 7
+zuständig: 6
+gesamten: 6
+entscheidet: 6
+etablieren: 5
+
+Class 6
+Length of word_count: 472
+Length of word_count with more than 1 occurences: 129
+Ten most common words:
+regelmäßig: 9
+gemeinsam: 7
+überprüft: 7
+jährlich: 6
+unterstützt: 6
+wichtige: 6
+operativen: 6
+jeweiligen: 6
+nachhaltig: 5
+verschiedene: 5
+
+Class 7
+Length of word_count: 380
+Length of word_count with more than 1 occurences: 105
+Ten most common words:
+jährlich: 22
+regelmäßig: 15
+überprüft: 11
+veröffentlicht: 11
+internen: 9
+gewährleistet: 8
+jeweiligen: 7
+ermittelt: 7
+festgelegt: 7
+einzelnen: 6
+
+Class 8
+Length of word_count: 371
+Length of word_count with more than 1 occurences: 104
+Ten most common words:
+variablen: 18
+erhalten: 10
+jährlich: 8
+variable: 8
+überprüft: 6
+tariflichen: 6
+berücksichtigt: 6
+zusammen: 6
+entsprechend: 5
+grundsätzlich: 5
+
+Class 9
+Length of word_count: 393
+Length of word_count with more than 1 occurences: 90
+Ten most common words:
+regelmäßig: 14
+durchgeführt: 9
+relevanten: 8
+informiert: 8
+wesentlichen: 8
+wichtigsten: 7
+identifiziert: 6
+zwischen: 6
+verschiedenen: 6
+regelmäßige: 5
+
+Class 10
+Length of word_count: 537
+Length of word_count with more than 1 occurences: 99
+Ten most common words:
+nachhaltigen: 7
+wesentlichen: 6
+regelmäßig: 6
+sozialen: 5
+ökologischen: 5
+nachhaltige: 5
+bewertet: 5
+ermöglichen: 5
+erhalten: 4
+politische: 4
+
+Class 11
+Length of word_count: 488
+Length of word_count with more than 1 occurences: 115
+Ten most common words:
+natürlichen: 9
+ökologischen: 9
+verbraucht: 6
+wesentlichen: 6
+reduzieren: 5
+ökologische: 5
+natürlicher: 4
+beispielsweise: 4
+verweisen: 4
+reduziert: 4
+
+Class 12
+Length of word_count: 451
+Length of word_count with more than 1 occurences: 98
+Ten most common words:
+ökologischen: 10
+vermeiden: 5
+negative: 5
+jährlich: 4
+durchgeführt: 4
+sukzessive: 4
+verringern: 4
+benötigen: 4
+innerhalb: 4
+langfristig: 4
+
+Class 13
+Length of word_count: 429
+Length of word_count with more than 1 occurences: 87
+Ten most common words:
+reduzieren: 13
+erneuerbaren: 9
+erfassen: 6
+klimaneutral: 5
+beziehen: 5
+entstehen: 5
+beschrieben: 5
+nachhaltige: 4
+weiteren: 4
+ermittelt: 4
+
+Class 14
+Length of word_count: 420
+Length of word_count with more than 1 occurences: 96
+Ten most common words:
+durchgeführt: 8
+regelmäßigen: 7
+regelmäßig: 7
+beteiligen: 5
+gesetzlichen: 5
+berichtet: 4
+aktuelle: 4
+jährlich: 4
+nachhaltig: 4
+regelmäßige: 4
+
+Class 15
+Length of word_count: 421
+Length of word_count with more than 1 occurences: 90
+Ten most common words:
+unabhängig: 8
+ermöglicht: 6
+erhalten: 6
+individuellen: 5
+persönliche: 5
+sexuellen: 5
+tariflichen: 5
+unterstützen: 5
+beruflichen: 4
+geschaffen: 4
+
+Class 16
+Length of word_count: 449
+Length of word_count with more than 1 occurences: 97
+Ten most common words:
+demografischen: 8
+individuelle: 8
+persönlichen: 5
+jährlich: 5
+kontinuierlich: 5
+regelmäßige: 4
+persönliche: 4
+unterstützt: 4
+unterstützen: 4
+regelmäßig: 4
+
+Class 17
+Length of word_count: 391
+Length of word_count with more than 1 occurences: 108
+Ten most common words:
+gesetzlichen: 11
+entsprechenden: 9
+verpflichtet: 8
+regionale: 7
+vornehmlich: 6
+verpflichten: 6
+deutschen: 6
+wesentlichen: 6
+vergeben: 5
+unterliegen: 5
+
+Class 18
+Length of word_count: 420
+Length of word_count with more than 1 occurences: 93
+Ten most common words:
+unterstützen: 12
+engagieren: 11
+sozialen: 11
+unterstützt: 10
+insgesamt: 7
+gemeinnützige: 5
+engagiert: 5
+gesellschaftliche: 5
+gesellschaftlichen: 5
+zusammen: 4
+
+Class 19
+Length of word_count: 373
+Length of word_count with more than 1 occurences: 96
+Ten most common words:
+insbesondere: 17
+gegenüber: 15
+politische: 14
+politischen: 13
+aufsichtsrechtlichen: 12
+kreditwirtschaftlichen: 11
+gesetzlichen: 10
+vertreten: 8
+politisch: 7
+bankpolitischen: 7
+
+Class 20
+Length of word_count: 419
+Length of word_count with more than 1 occurences: 114
+Ten most common words:
+regelmäßig: 13
+gesetzlichen: 10
+internen: 7
+überprüft: 7
+jährlich: 7
+anlassbezogen: 7
+hingewiesen: 7
+regelmäßige: 6
+relevanten: 6
+insbesondere: 5
+
