@@ -1,31 +1,11 @@
 from collections import Counter, defaultdict
-import json
 import matplotlib.pyplot as plt
-
-
-data = ['data/trial_data.jsonl', 'data/development_data.jsonl', 'data/training_data.jsonl', 'data/validation_data.jsonl']
-data = data[0:3]
-
-task_a_label = []
-task_b_label = []
-year = []
-
-for file in data:
-    with open(file, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            line = json.loads(line)
-            task_a_label.append(int(line['task_a_label']))
-            task_b_label.append(round(float(line['task_b_label']), 4))
-            year.append(int(line['year']))
-            
 
 # plot task_a_label
 def plot_frequency(task_a_label, task_b_label):
 
     count_a = Counter(task_a_label)
     count_b = Counter(task_b_label)
-
 
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
@@ -34,22 +14,21 @@ def plot_frequency(task_a_label, task_b_label):
     plt.title('Task A Label')
     plt.xlabel('Label')
     plt.ylabel('Frequency')
+
     plt.subplot(1, 2, 2)
     plt.scatter(count_b.keys(), count_b.values())
     plt.title('Task B Label')
     plt.xlabel('Label')
     plt.ylabel('Frequency')
-    plt.savefig('Frequency.png')
+    plt.savefig('/graphs/Frequency.png')
 
-# plot_frequency(task_a_label, task_b_label)
 
+# Box plot, X axis is task_a_label, Y axis is task_b_label matched to task_a_label
 def plot_frequencypertask(task_a_label, task_b_label):
-    # Box plot, X axis is task_a_label, Y axis is task_b_label matched to task_a_label
     task_a_validation = defaultdict(list)
     for i in range(len(task_a_label)):
         task_a_validation[task_a_label[i]].append(task_b_label[i])
-    
-    
+       
     # sort task_a_validation by key
     task_a_validation = dict(sorted(task_a_validation.items()))
     
@@ -61,17 +40,14 @@ def plot_frequencypertask(task_a_label, task_b_label):
     plt.ylabel('Task B Label')
     plt.savefig('Task_A_vs_Task_B.png')
 
-# plot_frequencypertask(task_a_label, task_b_label)
-
 
 # Find correlation between task_a_label and task_b_label and given year in data
-def plot_correlation(task_a_label, task_b_label, year):
+def plot_correlation(task_b_label, year):
 
     year_list = [[] for _ in range(6)]
     for i in range(len(year)):
         year_list[(year[i]-2016)].append(task_b_label[i])
-    
-    
+
     plt.figure(figsize=(10, 5))
     plt.boxplot(year_list)
     # increase the x axis tick names by 2015
@@ -81,7 +57,7 @@ def plot_correlation(task_a_label, task_b_label, year):
     plt.ylabel('Task B Label')
     plt.savefig('Task_B_vs_Year.png')
 
-plot_correlation(task_a_label, task_b_label, year)
+# plot word count for total words
 
 
 
