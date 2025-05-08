@@ -1,0 +1,842 @@
+class CaseStudy:
+    '''
+    Set Paramters and Load Data from Github
+    '''
+    def __init__(self, trial = False, results_folder_name = 'Results'):
+        self.base_path = './Result' # Create a directory for the results
+        self.result_path = self.prepare_results_folder(self.base_path, results_folder_name)
+        
+        # Modelkonfiguration vorbereiten
+        self.model_directory = self.result_path + '\\model_checkpoint' 
+        self.pretrained_model_name = 'bert-base-german-cased'
+        self.tokenizer = None # wird später in training / evaluation gesetzt
+        self.training_steps = 150 # auch für save_steps und logging_steps (=1/5 * steps)
+        self.most_relevant_words = 400 
+        self.target_scaling_start = 1.1 # Gewichtung für target ggü context
+        # Folgende Parameter werden durch optuna training ggf durch bessere hyperparameter ausgetauscht
+        self.epochs = 8             # Wie oft soll der gesamte Datensatz durchlaufen werden?
+        self.learning_rate = 2e-5   # kleinere Rate sorgt für stabileres Lernen
+        self.weight_decay = 0.01    # L2-Regularisierung, um Überanpassung (Overfitting) zu verhindern.
+        self.warmup_ratio = 0.1     # Aufwärmphase Training 
+
+        self.param_config = self.result_path + '\\parameter_config.txt'
+        self.save_current_parameters(self.param_config)
+
+        # Labelnamen
+        self.label_map = {
+            0: 'Strategic Analysis and Action',   1: 'Materiality',
+            2: 'Objectives',                      3: 'Depth of the Value Chain',
+            4: 'Responsibility',                  5: 'Rules and Processes',
+            6: 'Control',                         7: 'Incentive Systems',
+            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management',
+            10: 'Usage of Natural Resources',     11: 'Resource Management',
+            12: 'Climate-Relevant Emissions',     13: 'Employment Rights',
+            14: 'Equal Opportunities',            15: 'Qualifications',
+            16: 'Human Rights',                   17: 'Corporate Citizenship',
+            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
+        }
+
+        self.label_map_de = {
+            0: 'Strategische Analyse und Maßnahmen',    1: 'Wesentlichkeit',
+            2: 'Ziele',                                 3: 'Tiefe der Wertschöpfungskette',
+            4: 'Verantwortung',                         5: 'Regeln und Prozesse',
+            6: 'Kontrolle',                             7: 'Anreizsysteme',
+            8: 'Einbindung von Stakeholdern',           9: 'Innovation und Produktmanagement',
+            10: 'Nutzung natürlicher Ressourcen',       11: 'Ressourcenmanagement',
+            12: 'Klimarelevante Emissionen',            13: 'Arbeitsrechte',
+            14: 'Chancengleichheit',                    15: 'Qualifikationen',
+            16: 'Menschenrechte',                       17: 'Gesellschaftliche Verantwortung von Unternehmen',
+            18: 'Politischer Einfluss',                 19: 'Rechts- und regelkonformes Verhalten'
+        }
+
+        # Super-Labelnamen (Gruppiert Label in Oberkategorien)
+        self.label_to_superlabel = {
+            0: 0, 1: 0, 2: 0, 3: 0,                             # 0 Strategy
+            4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1,                 # 1 Process Management
+            10: 2, 11: 2, 12: 2,                                # 2 Environment
+            13: 3, 14: 3, 15: 3, 16: 3, 17: 3, 18: 3, 19: 3     # 3 Society
+        }
+
+        self.super_label_name_de = {
+            0: 'Strategie',
+            1: 'Prozessmanagement',
+            2: 'Umwelt',
+            3: 'Gesellschaft'
+        }
+
+        # relevante Dateinamen setzen
+        self.data_files = ['training','validation','development']
+        if trial:
+            self.data_files = ['trial','validation','development']
+
+        # Daten laden
+        self.df_training = self.get_and_prepare_data(self.data_files[0])
+        self.df_validation = self.get_and_prepare_data(self.data_files[1])
+        self.df_development = self.get_and_prepare_data(self.data_files[2])
+        self.dfs = [self.df_training,self.df_validation,self.df_development]
+
+    # Analysiert Datensätze 
+    def analyse_data(self):
+        # Alle Wörter aus der Spalte 'full_text' sammeln
+        all_words = []
+
+        for text in self.df_training['full_text']:
+            words = text.split()
+            all_words.extend(words)
+
+        # Wörter zählen
+        # word_counts = Counter(all_words)
+        # 100 häufigste Wörter ausgeben
+        # self.log('Top 100 häufigste Wörter:')
+        # for word, count in word_counts.most_common(100):
+        #     self.log(f'{word}: {count}')
+
+        # Vorbereitungen für Wörter- und Labelplots
+        fig_words, axs_words = plt.subplots(len(self.dfs), 1, figsize=(10, 6 * len(self.dfs)))
+        fig_labels, axs_labels = plt.subplots(2, 1, figsize=(12, 12))
+        fig_corr, axs_corr = plt.subplots(2, 1, figsize=(14, 12))
+        fig_letters, axs_corrl = plt.subplots(2, 1, figsize=(14, 12))
+
+        label_plot_idx = 0
+
+        for i in range(len(self.data_files)):
+            file = self.data_files[i]
+            df = self.dfs[i]
+
+            # Loggen
+            self.log(f'Analysiere {file}...')
+
+            # Wortanzahl-Verteilung
+            self.log(f'Anzahl der Wörter zählen ({file}):', df['word_count'].describe())
+            sns.histplot(df['word_count'], bins=30, kde=True, color='blue', label=file, stat='density', ax=axs_words[i])
+            axs_words[i].set_title(f'Wortanzahl-Verteilung ({file})')
+            axs_words[i].set_xlabel('Wortanzahl')
+            axs_words[i].set_ylabel('Dichte')
+            axs_words[i].legend()
+
+            # Label-Verteilung (nur wenn vorhanden)
+            if 'task_a_label' in df.columns:
+                self.log(f'Erzeuge Label-Verteilungsdiagramm für {file} Daten')
+                sns.countplot(x=df['label_name'], order=sorted(df['label_name'].unique()), ax=axs_labels[label_plot_idx])
+                axs_labels[label_plot_idx].set_title(f'Label-Verteilung ({file})')
+                axs_labels[label_plot_idx].set_xlabel('Label')
+                axs_labels[label_plot_idx].set_ylabel('Anzahl der Zeilen')
+                axs_labels[label_plot_idx].tick_params(axis='x', rotation=45)
+
+                # Wortanzahl vs. Label untersuchen (Boxplot)
+                self.log(f'Untersuche Korrelation zwischen Wortanzahl und Labels für {file}')
+                sns.boxplot(x='label_name', y='word_count', data=df, ax=axs_corr[label_plot_idx])
+                axs_corr[label_plot_idx].set_title(f'Boxplot: Wortanzahl pro Label ({file})')
+                axs_corr[label_plot_idx].set_xlabel('Label')
+                axs_corr[label_plot_idx].set_ylabel('Wortanzahl')
+                axs_corr[label_plot_idx].tick_params(axis='x', rotation=45)
+
+                # Buchstabenanzahl vs. Label untersuchen (Boxplot)
+                self.log(f'Untersuche Korrelation zwischen Buchstabenanzahl und Labels für {file}')
+                sns.boxplot(x='label_name', y='letter_count', data=df, ax=axs_corrl[label_plot_idx])
+                axs_corrl[label_plot_idx].set_title(f'Boxplot: Buchstabenanzahl pro Label ({file})')
+                axs_corrl[label_plot_idx].set_xlabel('Label')
+                axs_corrl[label_plot_idx].set_ylabel('Buchstabenanzahl')
+                axs_corrl[label_plot_idx].tick_params(axis='x', rotation=45)
+                label_plot_idx += 1
+
+            # Jahres-Analysen (nur wenn vorhanden)
+            if 'year' in df.columns and 'label_name' in df.columns:
+                self.log(f'Erzeuge Jahresanalyseplots für {file} Daten')
+
+                fig_year, axs_year = plt.subplots(3, 1, figsize=(14, 18))
+
+                # 1. Heatmap (Year vs. Label)
+                pivot_table = df.pivot_table(index='label_name', columns='year', aggfunc='size', fill_value=0)
+                sns.heatmap(pivot_table, annot=True, fmt='d', cmap='Blues', ax=axs_year[0])
+                axs_year[0].set_title('Heatmap: Verteilung der Labels über die Jahre')
+                axs_year[0].set_xlabel('Jahr')
+                axs_year[0].set_ylabel('Label')
+
+                # 2. Stacked Bar Plot (by Year und Label)
+                label_year_counts = df.groupby(['year', 'label_name']).size().unstack(fill_value=0)
+                label_year_counts.plot(kind='bar', stacked=True, ax=axs_year[1])
+                axs_year[1].set_title('Stacked Bar: Label-Verteilung pro Jahr')
+                axs_year[1].set_xlabel('Jahr')
+                axs_year[1].set_ylabel('Anzahl der Beispiele')
+                axs_year[1].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+
+                # 3. Boxplot Jahr/Label
+                sns.boxplot(x='label_name', y='year', data=df, ax=axs_year[2])
+                axs_year[2].set_title('Boxplot: Jahresverteilung pro Label')
+                axs_year[2].set_xlabel('Label')
+                axs_year[2].set_ylabel('Jahr')
+                axs_year[2].tick_params(axis='x', rotation=45)
+
+                fig_year.tight_layout()
+
+                if 'train' in file.lower():
+                    fig_year.savefig(self.result_path + '\\year_analysis_train.png')
+                elif 'dev' in file.lower() or 'development' in file.lower():
+                    fig_year.savefig(self.result_path + '\\year_analysis_dev.png')
+
+                plt.close(fig_year)
+
+        # Plots speichern
+        fig_labels.tight_layout()
+        fig_labels.savefig(self.result_path + '\\label_distribution.png')
+        plt.close(fig_labels)
+
+        fig_words.tight_layout()
+        fig_words.savefig(self.result_path + '\\count_words_distribution.png')
+        plt.close(fig_words)
+        
+        fig_letters.tight_layout()
+        fig_letters.savefig(self.result_path + '\\lettercount_vs_label.png')
+        plt.close(fig_letters)
+        
+        fig_corr.tight_layout()
+        fig_corr.savefig(self.result_path + '\\wordcount_vs_label.png')
+        plt.close(fig_corr)
+
+        self.log('Alle kombinierten Diagramme gespeichert.')
+
+    # Trainiert Bert-Automodel mit Validation-Daten ohne Labels (kein optimieren nach Accuracy, resultierende Accuracy bei 8 Epochen >60%)
+    def train_auto_model(self, test = False):
+        with open(self.param_config, 'a', encoding='utf-8') as f:
+            f.write("\nmodel = auto\n")
+        # Huggingface Datasets erstellen        
+        train_dataset = HFDataset.from_pandas(self.df_training[['full_text', 'task_a_label']])
+        val_dataset = HFDataset.from_pandas(self.df_validation[['full_text']])
+
+        self.log('Anzahl der Beispiele im Trainingsdatensatz:', len(train_dataset))
+        self.log('Anzahl der Beispiele im Validierungsdatensatz:', len(val_dataset))
+        self.log('Features im Trainingsdatensatz:', train_dataset.features)
+        self.log('Features im Validierungsdatensatz:', val_dataset.features)
+
+        # Tokenizer vorbereiten
+        self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
+        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+
+        def tokenize_sample(example):
+            return self.tokenizer(example['full_text'], truncation=True)
+
+        # Tokenisieren
+        tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+        tokenized_val = val_dataset.map(tokenize_sample, batched=True)
+        self.log(f'tokenized_train keys: {tokenized_train.column_names}')
+        self.log(f'tokenized_val keys: {tokenized_val.column_names}')
+
+        if test:
+            # Datengröße reduzieren für schnelles Testen
+            tokenized_train = tokenized_train.select(range(5))
+            tokenized_val = tokenized_val.select(range(5))
+
+        # Bei Training: Spalte für Trainer umbenennen
+        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+        tokenized_train.set_format('torch')
+
+        self.log('Format von tokenized_train:', tokenized_train.format)
+        self.log('Keys von tokenized_train[0]:', tokenized_train[0].keys())
+
+        # Model vorbereiten
+        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, 
+                                                                    num_labels=len(self.label_map))
+        
+        # Trainings-Argumente definieren
+        training_args = TrainingArguments(
+            output_dir=self.result_path,                # Pfad an dem training checkpoints gespeichert werden
+            eval_strategy='steps',              
+            eval_steps=self.training_steps,             # nach wie vielen Schritten soll evaluiert werden
+            save_steps=self.training_steps,             # nach wie vielen Schritten soll gespeichert werden
+            logging_steps=int(self.training_steps*1/5), # nach wie vielen Schritten soll geloggt werden
+            num_train_epochs=self.epochs,               # Anzahl an Durchläufen des Training Datensatzes
+            learning_rate=self.learning_rate,   
+            weight_decay=self.weight_decay,
+            save_total_limit=1,
+            report_to='none'                            # kein zusätzliches externes logging
+        )
+
+        # Trainer mit Metriken
+        trainer = Trainer(
+            model=model,
+            args=training_args,
+            train_dataset=tokenized_train,
+            eval_dataset=tokenized_val,
+            data_collator=data_collator
+        )
+
+        # Startzeit merken
+        start_time = time.time()
+        self.log('Starte Training')
+        trainer.train()
+        end_time = time.time()
+
+        # Dauer berechnen
+        training_duration = end_time - start_time
+        self.log('Training abgeschlossen in {:.2f} Sekunden.'.format(training_duration))
+
+        # Model speichern
+        trainer.save_model(self.model_directory)
+        self.tokenizer.save_pretrained(self.model_directory)
+
+    # Trainiert customized Bert-Model mit Split der Trainingdaten (Optimierung nach Accuracy, target und context getrennt übergeben, superlabels hinzugefügt, Gewichtung auf Target)
+    def train_custom_model(self):
+        with open(self.param_config, 'a', encoding='utf-8') as f:
+            f.write("\nmodel = custom\n")
+
+        self.log('Starte Training Vorbereitungen')
+        # Bereite Spalte 'text lenght' als feature vor
+        scaler = MinMaxScaler()
+        word_count_scaled = scaler.fit_transform(self.df_training[['word_count']]) 
+
+        # TF-IDF erstellen
+        self.log('Erstelle TF-IDF für beste Feature Auswahl')
+        vectorizer = TfidfVectorizer(max_features=3000, ngram_range=(1, 2))  # erstmal großzügig
+        X_tfidf = vectorizer.fit_transform(self.df_training['full_text'])
+
+        # Labels laden
+        y = self.df_training['task_a_label'].values
+
+        # Chi² Feature Selektion
+        selector = SelectKBest(score_func=chi2, k=self.most_relevant_words)  # Wähle die x besten Features
+        selector.fit(X_tfidf, y)
+
+        # Zugriff auf die ausgewählten Feature-Namen
+        selected_feature_indices = selector.get_support(indices=True)
+        selected_feature_names = [vectorizer.get_feature_names_out()[i] for i in selected_feature_indices]
+
+        # Neuer Vectorizer nur mit den besten Features trainieren
+        vectorizer_selected = TfidfVectorizer(vocabulary=selected_feature_names)
+        X_selected_final = vectorizer_selected.fit_transform(self.df_training['full_text']).toarray()
+
+        # Wortanzahl anhängen (axis=1 = spaltenweise)
+        X_combined = np.concatenate([X_selected_final, word_count_scaled], axis=1)
+
+        # Tokenizer für BERT
+        self.log(f'''Lade BertTokenizer {self.pretrained_model_name} ''')
+        self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
+
+        # Tokenisieren
+        encodings = self.tokenizer(
+            text=list(self.df_training['context_text']),
+            text_pair=list(self.df_training['target']),
+            truncation=True,
+            padding=True,
+            max_length=256,
+            return_token_type_ids=True
+        )
+
+        # Labels extrahieren
+        self.log('Bereite Daten für Trainer vor')
+        labels = self.df_training['task_a_label'].values
+        super_labels = self.df_training['super_label'].values
+
+        # Train-Test Split (stratify funktioniert nur wenn mindestens 2 Fälle pro Label verfuegbar sind)
+        label_counts = Counter(labels)
+        min_class_count = min(label_counts.values())
+
+        if min_class_count >= 2:
+            stratify = labels
+        else:
+            stratify = None
+
+        train_idx, val_idx = train_test_split(
+            np.arange(len(labels)),
+            test_size=0.2,
+            stratify=stratify,
+            random_state=42)
+            
+        self.log(f'Train idx shape: {train_idx.shape}')
+        self.log(f'Val idx shape: {val_idx.shape}')
+        self.log(f'X_combined shape: {X_combined.shape}')
+        self.log(f'Labels shape: {labels.shape}')
+        self.log(f'Super labels shape: {super_labels.shape}')
+
+        # Split von TF-IDF Matrix
+        X_train_selected = X_combined[train_idx]
+        X_val_selected = X_combined[val_idx]
+
+        # Encodings für Training und Validation erstellen
+        encodings_train = {key: np.array(val)[train_idx] for key, val in encodings.items()}
+        encodings_val = {key: np.array(val)[val_idx] for key, val in encodings.items()}
+
+        # Datasets erstellen
+        train_dataset = SustainDataset(
+            encodings_train,
+            X_train_selected,
+            labels[train_idx],
+            super_labels[train_idx]
+        )
+
+        val_dataset = SustainDataset(
+            encodings_val,
+            X_val_selected,
+            labels[val_idx],
+            super_labels[val_idx]
+        )
+
+        optuna_training = False
+        if optuna_training:
+            # definiere fixe parameter für training arguments
+            base_args_dict = {
+                'output_dir': self.result_path,
+                'eval_strategy': 'steps',
+                'save_strategy': 'steps',
+                'eval_steps': self.training_steps,
+                'save_steps': self.training_steps,
+                'load_best_model_at_end': True,
+                'metric_for_best_model': 'accuracy',
+                'greater_is_better': True,
+                'logging_dir': self.result_path,
+                'logging_steps': int(self.training_steps * 1 / 5),
+                'report_to': 'none',
+                'save_total_limit': 1,
+            }
+
+            # Trainer Setup
+            training_args = TrainingArguments(
+                **base_args_dict,
+                learning_rate=self.learning_rate,
+                per_device_train_batch_size=8,
+                per_device_eval_batch_size=8,
+                num_train_epochs=self.epochs,
+                weight_decay=self.weight_decay,
+                warmup_ratio=self.warmup_ratio                        
+            )
+
+            # Trainer für Hyperparameter-Tuning
+            trainer = Trainer(
+                model_init=self.model_init, 
+                args=training_args,
+                train_dataset=train_dataset,
+                eval_dataset=val_dataset,
+                compute_metrics=self.compute_metrics,
+                tokenizer=self.tokenizer,
+                callbacks=[LogSegmentScalingCallback()]
+            )
+
+            # Optuna-Tuning starten
+            self.log('Starte Hyperparameter-Tuning mit Optuna')
+            best_run = trainer.hyperparameter_search(
+                direction='maximize',
+                backend='optuna',
+                hp_space=self.optuna_hp_space,
+                n_trials=10  # kannst du erhöhen, wenn du Zeit & Ressourcen hast
+            )
+
+            self.log(f'Beste Hyperparameter: {best_run.hyperparameters}')
+            
+            param_df = pd.DataFrame([best_run.hyperparameters])
+            param_df['objective'] = best_run.objective
+
+            # CSV-Datei speichern
+            csv_path = os.path.join(self.result_path, 'best_hyperparameters.csv')
+            param_df.to_csv(csv_path, index=False)
+
+            self.log(f'Beste Hyperparameter in "{csv_path}" gespeichert')
+
+            # Finaler Trainer mit besten Parametern 
+            best_args = TrainingArguments(
+                **base_args_dict,
+                **best_run.hyperparameters
+            )
+        else:
+            
+            # Trainer Setup
+            best_args = TrainingArguments(
+                output_dir=self.result_path,
+                eval_strategy='steps',                      # nicht nur nach Epochs, sondern häufiger
+                save_strategy='steps',                      # auch Speichern alle x Schritte
+                eval_steps=self.training_steps,             # nach wie vielen Schritten soll evaluiert werden
+                save_steps=self.training_steps,             # nach wie vielen Schritten soll gespeichert werden
+                load_best_model_at_end=True,                # bestes Model speichern
+                metric_for_best_model='accuracy',
+                greater_is_better=True,                     # je höher die Accuracy, desto besser
+                learning_rate=self.learning_rate,           # leicht kleinere LR für stabileres Training
+                per_device_train_batch_size=8,
+                per_device_eval_batch_size=8,
+                num_train_epochs=self.epochs,
+                weight_decay=0.01,
+                warmup_ratio=0.1,                           # 10% der Trainingszeit warmup
+                save_total_limit=2,
+                logging_dir=self.result_path,
+                logging_steps=int(self.training_steps*1/5), # nach wie vielen Schritten soll geloggt werden
+                report_to='none'                            # keine externe Tracking Services
+            )
+
+
+        final_trainer = Trainer(
+            model_init=self.model_init,
+            args=best_args,
+            train_dataset=train_dataset,
+            eval_dataset=val_dataset,
+            compute_metrics=self.compute_metrics,
+            tokenizer=self.tokenizer,
+            callbacks=[LogSegmentScalingCallback()]
+        )
+
+        # Training starten
+        start_time = time.time()
+        self.log('Trainiere finales Modell mit besten Parametern')
+        final_trainer.train()
+
+        # Dauer berechnen
+        end_time = time.time()
+        training_duration = end_time - start_time
+        self.log('Training abgeschlossen in {:.2f} Sekunden.'.format(training_duration))
+
+        # Model speichern
+        final_trainer.save_model(self.model_directory)
+        self.tokenizer.save_pretrained(self.model_directory)
+        
+        # Speichern des finalen Vectorizers
+        dump(vectorizer_selected, self.model_directory + '\\vectorizer_selected.joblib')
+        dump(scaler, self.model_directory + '\\word_count_scaler.joblib')
+
+        self.log(f'''Trainiertes Model unter '{self.model_directory}' gespeichert''')
+
+    # Läd Model aus Results-Pfad, evaluiert Model mit Development-Daten, self.loged Klassifikationsbericht in Konsole und speichert Confusion-Matrix in Results-Pfad
+    def evaluate_model(self, custom_model = False):
+
+        self.log('Starte Evaluation mit Entwicklungsdaten')
+        if custom_model:
+            self.log('Lade trainiertes Model')
+            # Modelklasse importieren und Modelgewichte laden
+            model = self.load_custombert_model(self.model_directory + '\\model.safetensors')
+
+            self.log('Lade scaler und verctorizer aus model directory')
+            # Lade Vectorizer mit zuvor X wichtigsten Begriffen vorbereitet; x = self.most_relevant_words 
+            vectorizer_selected = load(self.model_directory + '\\vectorizer_selected.joblib')
+            
+            # Lade scaler für word count feature und skaliere
+            scaler = load(self.model_directory + '\\word_count_scaler.joblib')
+            word_count_scaled = scaler.transform(self.df_development[['word_count']])
+            
+            # TF-IDF Features erzeugen 
+            X_tfidf = vectorizer_selected.transform(self.df_development['full_text']).toarray()
+
+            # Wortanzahl anhängen
+            X_combined = np.concatenate([X_tfidf, word_count_scaled], axis=1)
+
+            self.log('Bereite tokenizer vor')
+            self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
+
+            # Tokenisieren
+            encodings = self.tokenizer(  text=list(self.df_development['context_text']),
+                                    text_pair=list(self.df_development['target']),
+                                    truncation=True,
+                                    padding=True,
+                                    max_length=256,
+                                    return_token_type_ids=True,
+                                    return_tensors='np'  # Ausgabe als numpy arrays
+                                 )
+
+            # Labels laden 
+            labels_dev = self.df_development['task_a_label'].values
+            super_labels_dev = self.df_development['super_label'].values
+
+            # === SustainDataset für Development bauen ===
+            dev_dataset = SustainDataset(
+                {key: encodings[key] for key in ['input_ids', 'attention_mask', 'token_type_ids']},
+                X_combined,
+                labels_dev,
+                super_labels_dev
+            )
+
+        else:
+            model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
+            model.eval()
+
+            self.log('Lade Tokenizer')
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
+
+            # Entwicklungstexte als Dataset vorbereiten
+            dev_texts = self.df_development['full_text'].tolist()
+            dev_dataset = HFDataset.from_dict({'full_text': dev_texts})
+
+            # Tokenizer-Funktion
+            def tokenize_batch(batch):
+                return self.tokenizer(batch['full_text'], truncation=True)
+
+            # Tokenisieren
+            dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['full_text'])
+
+        # Model auf richtiges Gerät verschieben
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model.to(device)
+
+        # DataLoader vorbereiten
+        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
+
+        # Vorhersagen
+        predictions = []
+
+        with torch.no_grad():
+            for batch in dev_loader:
+                batch = {k: v.to(device) for k, v in batch.items()}
+                outputs = model(**batch)
+                if custom_model:
+                    probs = torch.nn.functional.softmax(outputs['logits'], dim=-1)
+                else:
+                    probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                preds = probs.argmax(dim=-1)
+
+                for pred, prob in zip(preds, probs):
+                    predictions.append((pred.item(), prob[pred].item()))
+
+        # Ergebnisse in DataFrame speichern
+        self.df_development['predicted_label'] = [p[0] for p in predictions]
+        self.df_development['confidence_score'] = [p[1] for p in predictions]
+
+        # Schöne Labels ergänzen
+        self.df_development['true_label_name'] = self.df_development['label_name']
+        self.df_development['predicted_label_name'] = self.df_development['predicted_label'].map(self.label_map)
+
+        # Excel speichern
+        self.df_development[['id', 'year', 'full_text', 
+                             'true_label_name', 'predicted_label_name', 
+                             'confidence_score']].to_excel(self.result_path + '\\development_predictions.xlsx', index=False)
+
+        self.log(f'''Vorhersagen gespeichert unter: {self.result_path} - development_predictions.xlsx''')
+
+        # Metriken berechnen
+        y_true = self.df_development['task_a_label']
+        y_pred = self.df_development['predicted_label']
+
+        self.log('Klassifikationsbericht:')
+        self.log(classification_report(y_true, y_pred, target_names=[self.label_map[i] for i in range(20)], digits=3))
+        # Classification Report als Dict
+        report_dict = classification_report(y_true, y_pred, target_names=[self.label_map[i] for i in range(20)], 
+                                            digits=3, output_dict=True)
+
+        # In DataFrame konvertieren und als png speichern
+        df_report = pd.DataFrame(report_dict).transpose()
+        self.create_classification_report(df_report)
+
+        # Genauigkeit berechnen
+        acc = accuracy_score(y_true, y_pred)
+        self.log(f'Genauigkeit: {acc:.4f}')
+
+        # Confusion Matrix
+        cm = confusion_matrix(y_true, y_pred)
+
+        plt.figure(figsize=(14,12))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_map[i] for i in range(20)], yticklabels=[self.label_map[i] for i in range(20)])
+        plt.xlabel('Vorhergesagtes Label')
+        plt.ylabel('Wahres Label')
+        plt.title('Konfusionsmatrix - Entwicklungsdatensatz')
+        plt.xticks(rotation=90)
+        plt.yticks(rotation=0)
+        plt.tight_layout()
+        plt.savefig(self.result_path + '\\confusion_matrix.png')
+        plt.close()
+
+        self.log(f'''Konfusionsmatrix gespeichert unter: {self.result_path} - confusion_matrix.png''')
+
+    ###########################################################
+    # Hilfs-Funktionen
+    ###########################################################
+
+
+    def log(self, message, values=None):
+        '''Protokolliert eine Nachricht mit aktuellem Datum und Uhrzeit.'''
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        if values is not None:
+            if isinstance(values, dict):
+                print(f'[{timestamp}] {message}')
+                for key, value in values.items():
+                    print(f'    {key}: {value}')
+            elif isinstance(values, pd.DataFrame):
+                print(f'[{timestamp}] {message}')
+                print(values.to_string(index=False))
+            elif isinstance(values, pd.Series):
+                print(f'[{timestamp}] {message}')
+                print(values.to_string())
+            else:
+                print(f'[{timestamp}] {message} {values}')
+        else:
+            print(f'[{timestamp}] {message}')   
+
+    def save_current_parameters(self, filepath):
+        # Manuell festgelegte Parameter, die du loggen willst – alle aus der Instanz
+        tracked_params = [
+            "training_steps",
+            "most_relevant_words",
+            "target_scaling_start",
+            "epochs",
+            "learning_rate",
+            "weight_decay",
+            "warmup_ratio"
+        ]
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            for param in tracked_params:
+                value = getattr(self, param, None)
+                line = f"{param} = {value}"
+                f.write(line + '\n')
+
+        self.log(f'Parameter gespeichert unter {filepath} ')
+
+    def load_data_from_github(self, file_name):
+        '''Läd Datensatz von Github Sustaineval 2025 und gibt sie als Pandas Dataframe zurück.'''
+        base_url = 'https://raw.githubusercontent.com/SustainEval/sustaineval2025_data/main/'
+        file_url = base_url + file_name
+        self.log(f'Lade Datei von {file_url}')
+        df = pd.read_json(file_url, lines=True)
+        return df
+    
+    def get_and_prepare_data(self, file):
+        '''Läd Dataframe und bereitet Spalten für Analyse, Training und Evaluation vor.'''
+        # set file name and load from github
+        file_name = file+'_data.jsonl'
+        df = self.load_data_from_github(file_name)
+
+        # context von liste zu string vorbereiten 
+        df['context_text'] = df['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+
+        # Labels bei 0 starten
+        if 'task_a_label' in df.columns:
+            df['task_a_label'] = df['task_a_label'] - 1
+            df['label_name'] = df['task_a_label'].apply(lambda x: self.label_map[x])
+            df['label_name_de'] = df['task_a_label'].apply(lambda x: self.label_map_de[x])
+            df['super_label'] = df['task_a_label'].map(self.label_to_superlabel)
+            df['super_label_name_de'] = df['super_label'].map(self.super_label_name_de)
+
+            # hänge label_name_de und super_label_name_de an context um den darin vorkommenden wörtern mehr gewicht zu geben (nur für training!)
+            # disabled -> accuracy only high during training but not in development
+            # if file == 'training':
+            #     df['context_text'] = df.apply(lambda row: row['context_text'] + ' ' + row['label_name_de'] + ' ' + row['super_label_name_de'], axis=1)
+
+        # Spalten konkatinieren
+        df['full_text'] = df.apply(self.prepare_full_text, axis=1)
+
+        # Wortanzahl und Buchstabenanzahl bestimmen
+        df['word_count'] = df['full_text'].apply(lambda x: len(x.split()))
+        df['letter_count'] = df['full_text'].apply(lambda x: len(x))
+
+        return df
+
+    def prepare_full_text(self, row):
+        '''Erstellt full_text Spalte.'''
+        context_text = row['context_text']
+        target_sentence = row['target']
+        return f'{context_text} {target_sentence}'
+
+    def model_init(self):
+        model = CustomBert(
+            num_labels=len(self.label_map),
+            num_superclasses=len(set(self.label_to_superlabel.values())),
+            additional_feature_dim=self.most_relevant_words + 1,
+            pretrained=self.pretrained_model_name,
+            target_scaling_start=self.target_scaling_start
+        )
+        model.bert.resize_token_embeddings(len(self.tokenizer))
+        return model
+
+    def optuna_hp_space(self, trial):
+        return {
+            'learning_rate': trial.suggest_float('learning_rate', 1e-5, 5e-5, log=True),
+            'num_train_epochs': trial.suggest_int('num_train_epochs', 3, 10),
+            'per_device_train_batch_size': trial.suggest_categorical('per_device_train_batch_size', [8, 16, 32]),
+            'warmup_ratio': trial.suggest_float('warmup_ratio', 0.0, 0.2),
+            'weight_decay': trial.suggest_float('weight_decay', 0.0, 0.1)
+        }
+
+    def compute_metrics(self, eval_pred):
+        '''Funktion num Metriken in Training zu integrieren.'''
+        # Überprüfen, ob predictions ein Tuple sind
+        if isinstance(eval_pred.predictions, tuple):
+            # Wenn ja, nimm nur die erste Prediction (label_logits)
+            logits = eval_pred.predictions[0]
+        else:
+            # Wenn nein, normale Prediction
+            logits = eval_pred.predictions
+
+        preds = np.argmax(logits, axis=1)
+        labels = eval_pred.label_ids
+
+        # Sicherstellen, dass labels ein Array sind
+        if isinstance(labels, tuple):
+            labels = labels[0]
+
+        return {
+            'eval_accuracy': accuracy_score(labels, preds),
+            'eval_f1_macro': f1_score(labels, preds, average='macro', zero_division=0),
+            'eval_precision_macro': precision_score(labels, preds, average='macro', zero_division=0),
+            'eval_recall_macro': recall_score(labels, preds, average='macro', zero_division=0)
+        }
+
+    def load_custombert_model(self, path_to_weights):
+        '''Läd zuvor gespeichertes trainiertes Modell und berechnet Ladezeit.'''
+        start_time = time.time()
+        model = CustomBert(
+            num_labels=len(self.label_map),
+            num_superclasses=len(set(self.label_to_superlabel.values())),
+            additional_feature_dim=self.most_relevant_words + 1,  
+            pretrained=self.pretrained_model_name,
+            target_scaling_start=self.target_scaling_start
+            )
+        load_model(model, path_to_weights)
+        model.eval()
+        end_time = time.time()
+
+        # Dauer berechnen
+        duration = end_time - start_time
+        self.log('Model erfolgreich geladen in {:.2f} Sekunden.'.format(duration))
+        return model
+    
+    def create_classification_report(self, df_report):
+        # Round and format dataframe
+        df_main = df_report.iloc[:-3].copy()  # alles außer accuracy, macro avg, weighted avg
+        df_summary = df_report.iloc[-3:].copy()
+
+        # Formatierung
+        for col in ['precision', 'recall', 'f1-score']:
+            df_main[col] = df_main[col].apply(lambda x: f'{x*100:.2f} %')
+            df_summary[col] = df_summary[col].apply(lambda x: f'{x*100:.2f} %')
+        df_main['support'] = df_main['support'].astype(int)
+        df_summary['support'] = df_summary['support'].apply(lambda x: f'{x:.0f}')
+
+        # Plot mit 2 Tabellen: oben Klassen, unten zusammengefasst
+        fig = plt.figure(figsize=(12, len(df_main) * 0.4 + 2))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[len(df_main), 3])
+
+        # Haupttabelle
+        ax_main = fig.add_subplot(gs[0])
+        ax_main.axis('off')
+        table_main = ax_main.table(cellText=df_main.values,
+                                colLabels=df_main.columns,
+                                rowLabels=df_main.index,
+                                loc='center',
+                                cellLoc='center')
+        table_main.auto_set_font_size(False)
+        table_main.set_fontsize(9)
+        table_main.scale(1, 1.4)
+
+        # Zusammenfassungstabelle
+        ax_summary = fig.add_subplot(gs[1])
+        ax_summary.axis('off')
+        table_summary = ax_summary.table(cellText=df_summary.values,
+                                        colLabels=df_summary.columns,
+                                        rowLabels=df_summary.index,
+                                        loc='center',
+                                        cellLoc='center')
+        table_summary.auto_set_font_size(False)
+        table_summary.set_fontsize(10)
+        table_summary.scale(1, self.target_scaling_start)
+
+        # Speichern
+        plt.tight_layout()
+        plt.savefig(self.result_path + '\\classification_report.png', dpi=300)
+        plt.close()
+
+    def start(self, analysis = False, training = False, evaluation = False, custom_model = False):
+        '''Funktion um flexiblen Aufruf relevanter Funktionen zu erleichtern.'''
+        if analysis:
+            self.analyse_data()
+
+        if training:
+            if custom_model:
+                self.train_custom_model()
+            else:
+                self.train_auto_model()
+            
+        if evaluation:
+            self.evaluate_model(custom_model)
