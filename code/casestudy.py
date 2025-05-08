@@ -1,28 +1,29 @@
 class CaseStudy:
     '''
-    Set Paramters and Load Data from Github
+    Set Paramters and load data
     '''
     def __init__(self, trial = False, results_folder_name = 'Results'):
-        self.base_path = './Result' # Create a directory for the results
-        self.result_path = self.prepare_results_folder(self.base_path, results_folder_name)
+        # Directory for results
+        self.result_path = '../Result'
+        self.model_directory = self.result_path + '/Checkpoints'
+        self.parameter_file = self.result_path + '/parameters.txt'
+        self.data_path = '../Data'
         
-        # Modelkonfiguration vorbereiten
-        self.model_directory = self.result_path + '\\model_checkpoint' 
+        # Model Configuration
         self.pretrained_model_name = 'bert-base-german-cased'
-        self.tokenizer = None # wird später in training / evaluation gesetzt
-        self.training_steps = 150 # auch für save_steps und logging_steps (=1/5 * steps)
-        self.most_relevant_words = 400 
-        self.target_scaling_start = 1.1 # Gewichtung für target ggü context
-        # Folgende Parameter werden durch optuna training ggf durch bessere hyperparameter ausgetauscht
-        self.epochs = 8             # Wie oft soll der gesamte Datensatz durchlaufen werden?
-        self.learning_rate = 2e-5   # kleinere Rate sorgt für stabileres Lernen
-        self.weight_decay = 0.01    # L2-Regularisierung, um Überanpassung (Overfitting) zu verhindern.
-        self.warmup_ratio = 0.1     # Aufwärmphase Training 
+        self.tokenizer = None # Will be set during training
+        self.training_steps = 150 # More steps = more time
+        self.relevant_words = 400 # Number of words to select for TF-IDF
+        self.context_target_ratio = 1.1 # scaling of target vs context for evaluation
 
-        self.param_config = self.result_path + '\\parameter_config.txt'
-        self.save_current_parameters(self.param_config)
-
-        # Labelnamen
+        # These Paramaters are set by Optuna training 
+        self.epochs = 8             # How many epochs to train
+        self.learning_rate = 2e-5   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.01    # L2-regularization, to prevent overfitting
+        self.warmup_ratio = 0.1     # Warmup ratio for the learning rate scheduler
+        self.save_current_parameters(self.parameter_file)
+        
+        # Label Names
         self.label_map = {
             0: 'Strategic Analysis and Action',   1: 'Materiality',
             2: 'Objectives',                      3: 'Depth of the Value Chain',
@@ -36,20 +37,7 @@ class CaseStudy:
             18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
         }
 
-        self.label_map_de = {
-            0: 'Strategische Analyse und Maßnahmen',    1: 'Wesentlichkeit',
-            2: 'Ziele',                                 3: 'Tiefe der Wertschöpfungskette',
-            4: 'Verantwortung',                         5: 'Regeln und Prozesse',
-            6: 'Kontrolle',                             7: 'Anreizsysteme',
-            8: 'Einbindung von Stakeholdern',           9: 'Innovation und Produktmanagement',
-            10: 'Nutzung natürlicher Ressourcen',       11: 'Ressourcenmanagement',
-            12: 'Klimarelevante Emissionen',            13: 'Arbeitsrechte',
-            14: 'Chancengleichheit',                    15: 'Qualifikationen',
-            16: 'Menschenrechte',                       17: 'Gesellschaftliche Verantwortung von Unternehmen',
-            18: 'Politischer Einfluss',                 19: 'Rechts- und regelkonformes Verhalten'
-        }
-
-        # Super-Labelnamen (Gruppiert Label in Oberkategorien)
+        # DO WE NEED THIS? TODO
         self.label_to_superlabel = {
             0: 0, 1: 0, 2: 0, 3: 0,                             # 0 Strategy
             4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1,                 # 1 Process Management
@@ -57,23 +45,60 @@ class CaseStudy:
             13: 3, 14: 3, 15: 3, 16: 3, 17: 3, 18: 3, 19: 3     # 3 Society
         }
 
+        # WHY GERMAN? DO WE NEED THIS? TODO
         self.super_label_name_de = {
             0: 'Strategie',
             1: 'Prozessmanagement',
             2: 'Umwelt',
             3: 'Gesellschaft'
         }
+        
+        # Load Data
+        self.data_files = ['trial' if trial else 'training','validation','development']
 
-        # relevante Dateinamen setzen
-        self.data_files = ['training','validation','development']
-        if trial:
-            self.data_files = ['trial','validation','development']
-
-        # Daten laden
         self.df_training = self.get_and_prepare_data(self.data_files[0])
         self.df_validation = self.get_and_prepare_data(self.data_files[1])
         self.df_development = self.get_and_prepare_data(self.data_files[2])
-        self.dfs = [self.df_training,self.df_validation,self.df_development]
+        self.dfs = [self.df_training, self.df_validation, self.df_development]
+
+
+    def get_and_prepare_data(self, file):
+        '''
+        Load data and prepare columns for analysis, training and evaluation.
+        '''
+        # path to data
+        data_path = se
+        file_name = file+'_data.jsonl'
+
+        # context von liste zu string vorbereiten 
+        df['context_text'] = df['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+
+        # Labels bei 0 starten
+        if 'task_a_label' in df.columns:
+            df['task_a_label'] = df['task_a_label'] - 1
+            df['label_name'] = df['task_a_label'].apply(lambda x: self.label_map[x])
+            df['label_name_de'] = df['task_a_label'].apply(lambda x: self.label_map_de[x]) # German labels have been removed TODO
+            df['super_label'] = df['task_a_label'].map(self.label_to_superlabel)
+            df['super_label_name_de'] = df['super_label'].map(self.super_label_name_de)
+
+            # hänge label_name_de und super_label_name_de an context um den darin vorkommenden wörtern mehr gewicht zu geben (nur für training!)
+            # disabled -> accuracy only high during training but not in development
+            # if file == 'training':
+            #     df['context_text'] = df.apply(lambda row: row['context_text'] + ' ' + row['label_name_de'] + ' ' + row['super_label_name_de'], axis=1)
+
+        # Spalten konkatinieren
+        df['full_text'] = df.apply(self.prepare_full_text, axis=1)
+
+        # Wortanzahl und Buchstabenanzahl bestimmen
+        df['word_count'] = df['full_text'].apply(lambda x: len(x.split()))
+        df['letter_count'] = df['full_text'].apply(lambda x: len(x))
+
+        return df
+
+    
+
+
+
 
     # Analysiert Datensätze 
     def analyse_data(self):
@@ -198,7 +223,7 @@ class CaseStudy:
 
     # Trainiert Bert-Automodel mit Validation-Daten ohne Labels (kein optimieren nach Accuracy, resultierende Accuracy bei 8 Epochen >60%)
     def train_auto_model(self, test = False):
-        with open(self.param_config, 'a', encoding='utf-8') as f:
+        with open(self.parameter_file, 'a', encoding='utf-8') as f:
             f.write("\nmodel = auto\n")
         # Huggingface Datasets erstellen        
         train_dataset = HFDataset.from_pandas(self.df_training[['full_text', 'task_a_label']])
@@ -277,7 +302,7 @@ class CaseStudy:
 
     # Trainiert customized Bert-Model mit Split der Trainingdaten (Optimierung nach Accuracy, target und context getrennt übergeben, superlabels hinzugefügt, Gewichtung auf Target)
     def train_custom_model(self):
-        with open(self.param_config, 'a', encoding='utf-8') as f:
+        with open(self.parameter_file, 'a', encoding='utf-8') as f:
             f.write("\nmodel = custom\n")
 
         self.log('Starte Training Vorbereitungen')
@@ -294,7 +319,7 @@ class CaseStudy:
         y = self.df_training['task_a_label'].values
 
         # Chi² Feature Selektion
-        selector = SelectKBest(score_func=chi2, k=self.most_relevant_words)  # Wähle die x besten Features
+        selector = SelectKBest(score_func=chi2, k=self.relevant_words)  # Wähle die x besten Features
         selector.fit(X_tfidf, y)
 
         # Zugriff auf die ausgewählten Feature-Namen
@@ -501,7 +526,7 @@ class CaseStudy:
             model = self.load_custombert_model(self.model_directory + '\\model.safetensors')
 
             self.log('Lade scaler und verctorizer aus model directory')
-            # Lade Vectorizer mit zuvor X wichtigsten Begriffen vorbereitet; x = self.most_relevant_words 
+            # Lade Vectorizer mit zuvor X wichtigsten Begriffen vorbereitet; x = self.relevant_words 
             vectorizer_selected = load(self.model_directory + '\\vectorizer_selected.joblib')
             
             # Lade scaler für word count feature und skaliere
@@ -658,8 +683,8 @@ class CaseStudy:
         # Manuell festgelegte Parameter, die du loggen willst – alle aus der Instanz
         tracked_params = [
             "training_steps",
-            "most_relevant_words",
-            "target_scaling_start",
+            "relevant_words",
+            "context_target_ratio",
             "epochs",
             "learning_rate",
             "weight_decay",
@@ -674,44 +699,8 @@ class CaseStudy:
 
         self.log(f'Parameter gespeichert unter {filepath} ')
 
-    def load_data_from_github(self, file_name):
-        '''Läd Datensatz von Github Sustaineval 2025 und gibt sie als Pandas Dataframe zurück.'''
-        base_url = 'https://raw.githubusercontent.com/SustainEval/sustaineval2025_data/main/'
-        file_url = base_url + file_name
-        self.log(f'Lade Datei von {file_url}')
-        df = pd.read_json(file_url, lines=True)
-        return df
-    
-    def get_and_prepare_data(self, file):
-        '''Läd Dataframe und bereitet Spalten für Analyse, Training und Evaluation vor.'''
-        # set file name and load from github
-        file_name = file+'_data.jsonl'
-        df = self.load_data_from_github(file_name)
 
-        # context von liste zu string vorbereiten 
-        df['context_text'] = df['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
 
-        # Labels bei 0 starten
-        if 'task_a_label' in df.columns:
-            df['task_a_label'] = df['task_a_label'] - 1
-            df['label_name'] = df['task_a_label'].apply(lambda x: self.label_map[x])
-            df['label_name_de'] = df['task_a_label'].apply(lambda x: self.label_map_de[x])
-            df['super_label'] = df['task_a_label'].map(self.label_to_superlabel)
-            df['super_label_name_de'] = df['super_label'].map(self.super_label_name_de)
-
-            # hänge label_name_de und super_label_name_de an context um den darin vorkommenden wörtern mehr gewicht zu geben (nur für training!)
-            # disabled -> accuracy only high during training but not in development
-            # if file == 'training':
-            #     df['context_text'] = df.apply(lambda row: row['context_text'] + ' ' + row['label_name_de'] + ' ' + row['super_label_name_de'], axis=1)
-
-        # Spalten konkatinieren
-        df['full_text'] = df.apply(self.prepare_full_text, axis=1)
-
-        # Wortanzahl und Buchstabenanzahl bestimmen
-        df['word_count'] = df['full_text'].apply(lambda x: len(x.split()))
-        df['letter_count'] = df['full_text'].apply(lambda x: len(x))
-
-        return df
 
     def prepare_full_text(self, row):
         '''Erstellt full_text Spalte.'''
@@ -723,9 +712,9 @@ class CaseStudy:
         model = CustomBert(
             num_labels=len(self.label_map),
             num_superclasses=len(set(self.label_to_superlabel.values())),
-            additional_feature_dim=self.most_relevant_words + 1,
+            additional_feature_dim=self.relevant_words + 1,
             pretrained=self.pretrained_model_name,
-            target_scaling_start=self.target_scaling_start
+            context_target_ratio=self.context_target_ratio
         )
         model.bert.resize_token_embeddings(len(self.tokenizer))
         return model
@@ -769,9 +758,9 @@ class CaseStudy:
         model = CustomBert(
             num_labels=len(self.label_map),
             num_superclasses=len(set(self.label_to_superlabel.values())),
-            additional_feature_dim=self.most_relevant_words + 1,  
+            additional_feature_dim=self.relevant_words + 1,  
             pretrained=self.pretrained_model_name,
-            target_scaling_start=self.target_scaling_start
+            context_target_ratio=self.context_target_ratio
             )
         load_model(model, path_to_weights)
         model.eval()
@@ -820,7 +809,7 @@ class CaseStudy:
                                         cellLoc='center')
         table_summary.auto_set_font_size(False)
         table_summary.set_fontsize(10)
-        table_summary.scale(1, self.target_scaling_start)
+        table_summary.scale(1, self.context_target_ratio)
 
         # Speichern
         plt.tight_layout()

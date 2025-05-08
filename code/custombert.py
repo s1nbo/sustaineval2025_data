@@ -5,7 +5,7 @@ class CustomBert(torch.nn.Module):
         - context und target getrennt aufnehmen 
         - target mit dynamisch lernbarem Skalierungsfaktor, startet bei Startgewichtung von 1.2 
     '''
-    def __init__(self, num_labels, num_superclasses, additional_feature_dim=0, pretrained = 'bert-base-german-cased', target_scaling_start = 1.2):
+    def __init__(self, num_labels, num_superclasses, additional_feature_dim=0, pretrained = 'bert-base-german-cased', context_target_ratio = 1.2):
         super(CustomBert, self).__init__()
         self.bert = BertModel.from_pretrained(pretrained)
         self.dropout = torch.nn.Dropout(0.1)
@@ -16,7 +16,7 @@ class CustomBert(torch.nn.Module):
         self.fc_super = torch.nn.Linear(512, num_superclasses)
 
         # Dynamisch lernbarer Skalierungsfaktor für Target (Segment 1)
-        self.segment1_scaling = torch.nn.Parameter(torch.tensor(target_scaling_start))  # Startet bei 1.2
+        self.segment1_scaling = torch.nn.Parameter(torch.tensor(context_target_ratio))  # Startet bei 1.2
 
     def forward(self, input_ids=None, attention_mask=None, token_type_ids=None, additional_features=None, labels=None, super_labels=None, **kwargs):
         token_type_embeddings = self.bert.embeddings.token_type_embeddings(token_type_ids)
