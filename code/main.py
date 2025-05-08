@@ -1,6 +1,6 @@
-from casestudy import CaseStudy
+from model import Model
 
-self = CaseStudy()
+self = Model()
 
 self.analyse_data()
 self.train_custom_model()

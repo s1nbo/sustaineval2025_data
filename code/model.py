@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-class CaseStudy:
+class Model:
     '''
     Set Paramters and load data
     '''
@@ -668,6 +668,3 @@ class CaseStudy:
         plt.tight_layout()
         plt.savefig(self.result_path + '\\classification_report.png', dpi=300)
         plt.close()
-    
-
-test = CaseStudy(trial=True)
