@@ -1,14 +1,27 @@
+import os
+import pandas as pd
+
 class CaseStudy:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, trial = False, results_folder_name = 'Results'):
+    def __init__(self, trial = False): # check if this hast to be trial or validation or whatever 
         # Directory for results
-        self.result_path = '../Result'
-        self.model_directory = self.result_path + '/Checkpoints'
-        self.parameter_file = self.result_path + '/parameters.txt'
-        self.data_path = '../Data'
+        self.result_path = '../result'
+        self.model_directory = os.path.join(self.result_path, 'checkpoints')
+        self.parameter_file = os.path.join(self.result_path, 'parameters.txt')
+        self.data_path = '../data'
         
+        # Create and check directories
+        os.makedirs(self.result_path, exist_ok=True)
+        os.makedirs(self.model_directory, exist_ok=True)
+        # Check if the directories exist
+        if not os.path.exists(self.result_path):
+            raise FileNotFoundError(f'The directory does not exist: {self.result_path}')
+        if not os.path.exists(self.model_directory):
+            raise FileNotFoundError(f'The directory does not exist: {self.model_directory}')
+        
+
         # Model Configuration
         self.pretrained_model_name = 'bert-base-german-cased'
         self.tokenizer = None # Will be set during training
@@ -24,202 +37,45 @@ class CaseStudy:
         self.save_current_parameters(self.parameter_file)
         
         # Label Names
-        self.label_map = {
-            0: 'Strategic Analysis and Action',   1: 'Materiality',
-            2: 'Objectives',                      3: 'Depth of the Value Chain',
-            4: 'Responsibility',                  5: 'Rules and Processes',
-            6: 'Control',                         7: 'Incentive Systems',
-            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management',
-            10: 'Usage of Natural Resources',     11: 'Resource Management',
-            12: 'Climate-Relevant Emissions',     13: 'Employment Rights',
-            14: 'Equal Opportunities',            15: 'Qualifications',
-            16: 'Human Rights',                   17: 'Corporate Citizenship',
-            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
+        # Watch out I've updated the Keys to start at 1.
+        self.label_name = { 
+            1: 'Strategic Analysis and Action',   2: 'Materiality',
+            3: 'Objectives',                      4: 'Depth of the Value Chain',
+            5: 'Responsibility',                  6: 'Rules and Processes',
+            7: 'Control',                         8: 'Incentive Systems',
+            9: 'Stakeholder Engagement',         10: 'Innovation and Product Management',
+            11: 'Usage of Natural Resources',    12: 'Resource Management',
+            13: 'Climate-Relevant Emissions',    14: 'Employment Rights',
+            15: 'Equal Opportunities',           16: 'Qualifications',
+            17: 'Human Rights',                  18: 'Corporate Citizenship',
+            19: 'Political Influence',           20: 'Conduct that Complies with the Law and Policy'
         }
 
         # DO WE NEED THIS? TODO
-        self.label_to_superlabel = {
-            0: 0, 1: 0, 2: 0, 3: 0,                             # 0 Strategy
-            4: 1, 5: 1, 6: 1, 7: 1, 8: 1, 9: 1,                 # 1 Process Management
-            10: 2, 11: 2, 12: 2,                                # 2 Environment
-            13: 3, 14: 3, 15: 3, 16: 3, 17: 3, 18: 3, 19: 3     # 3 Society
+        self.label_superlabel = {
+            1: 0, 2: 0, 3: 0, 4: 0,                             # 0 Strategy
+            5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1,                # 1 Process Management
+            11: 2, 12: 2, 13: 2,                                # 2 Environment
+            14: 3, 15: 3, 16: 3, 17: 3, 18: 3, 19: 3, 20: 3     # 3 Society
         }
 
-        # WHY GERMAN? DO WE NEED THIS? TODO
-        self.super_label_name_de = {
-            0: 'Strategie',
-            1: 'Prozessmanagement',
-            2: 'Umwelt',
-            3: 'Gesellschaft'
-        }
         
         # Load Data
         self.data_files = ['trial' if trial else 'training','validation','development']
+        self.data = []
 
-        self.df_training = self.get_and_prepare_data(self.data_files[0])
-        self.df_validation = self.get_and_prepare_data(self.data_files[1])
-        self.df_development = self.get_and_prepare_data(self.data_files[2])
-        self.dfs = [self.df_training, self.df_validation, self.df_development]
-
-
-    def get_and_prepare_data(self, file):
-        '''
-        Load data and prepare columns for analysis, training and evaluation.
-        '''
-        # path to data
-        data_path = se
-        file_name = file+'_data.jsonl'
-
-        # context von liste zu string vorbereiten 
-        df['context_text'] = df['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
-
-        # Labels bei 0 starten
-        if 'task_a_label' in df.columns:
-            df['task_a_label'] = df['task_a_label'] - 1
-            df['label_name'] = df['task_a_label'].apply(lambda x: self.label_map[x])
-            df['label_name_de'] = df['task_a_label'].apply(lambda x: self.label_map_de[x]) # German labels have been removed TODO
-            df['super_label'] = df['task_a_label'].map(self.label_to_superlabel)
-            df['super_label_name_de'] = df['super_label'].map(self.super_label_name_de)
-
-            # hänge label_name_de und super_label_name_de an context um den darin vorkommenden wörtern mehr gewicht zu geben (nur für training!)
-            # disabled -> accuracy only high during training but not in development
-            # if file == 'training':
-            #     df['context_text'] = df.apply(lambda row: row['context_text'] + ' ' + row['label_name_de'] + ' ' + row['super_label_name_de'], axis=1)
-
-        # Spalten konkatinieren
-        df['full_text'] = df.apply(self.prepare_full_text, axis=1)
-
-        # Wortanzahl und Buchstabenanzahl bestimmen
-        df['word_count'] = df['full_text'].apply(lambda x: len(x.split()))
-        df['letter_count'] = df['full_text'].apply(lambda x: len(x))
-
-        return df
-
-    
+        for file_name in self.data_files:
+            # Read data from jsonl files
+            file_path = os.path.join(self.data_path, file_name+'_data.jsonl')
+            if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
+            current_file = pd.read_json(file_path, lines=True)
+            
+            # Prepare data for training
+            # change context from list to string
+            current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+            self.data.append(current_file)
 
 
-
-
-    # Analysiert Datensätze 
-    def analyse_data(self):
-        # Alle Wörter aus der Spalte 'full_text' sammeln
-        all_words = []
-
-        for text in self.df_training['full_text']:
-            words = text.split()
-            all_words.extend(words)
-
-        # Wörter zählen
-        # word_counts = Counter(all_words)
-        # 100 häufigste Wörter ausgeben
-        # self.log('Top 100 häufigste Wörter:')
-        # for word, count in word_counts.most_common(100):
-        #     self.log(f'{word}: {count}')
-
-        # Vorbereitungen für Wörter- und Labelplots
-        fig_words, axs_words = plt.subplots(len(self.dfs), 1, figsize=(10, 6 * len(self.dfs)))
-        fig_labels, axs_labels = plt.subplots(2, 1, figsize=(12, 12))
-        fig_corr, axs_corr = plt.subplots(2, 1, figsize=(14, 12))
-        fig_letters, axs_corrl = plt.subplots(2, 1, figsize=(14, 12))
-
-        label_plot_idx = 0
-
-        for i in range(len(self.data_files)):
-            file = self.data_files[i]
-            df = self.dfs[i]
-
-            # Loggen
-            self.log(f'Analysiere {file}...')
-
-            # Wortanzahl-Verteilung
-            self.log(f'Anzahl der Wörter zählen ({file}):', df['word_count'].describe())
-            sns.histplot(df['word_count'], bins=30, kde=True, color='blue', label=file, stat='density', ax=axs_words[i])
-            axs_words[i].set_title(f'Wortanzahl-Verteilung ({file})')
-            axs_words[i].set_xlabel('Wortanzahl')
-            axs_words[i].set_ylabel('Dichte')
-            axs_words[i].legend()
-
-            # Label-Verteilung (nur wenn vorhanden)
-            if 'task_a_label' in df.columns:
-                self.log(f'Erzeuge Label-Verteilungsdiagramm für {file} Daten')
-                sns.countplot(x=df['label_name'], order=sorted(df['label_name'].unique()), ax=axs_labels[label_plot_idx])
-                axs_labels[label_plot_idx].set_title(f'Label-Verteilung ({file})')
-                axs_labels[label_plot_idx].set_xlabel('Label')
-                axs_labels[label_plot_idx].set_ylabel('Anzahl der Zeilen')
-                axs_labels[label_plot_idx].tick_params(axis='x', rotation=45)
-
-                # Wortanzahl vs. Label untersuchen (Boxplot)
-                self.log(f'Untersuche Korrelation zwischen Wortanzahl und Labels für {file}')
-                sns.boxplot(x='label_name', y='word_count', data=df, ax=axs_corr[label_plot_idx])
-                axs_corr[label_plot_idx].set_title(f'Boxplot: Wortanzahl pro Label ({file})')
-                axs_corr[label_plot_idx].set_xlabel('Label')
-                axs_corr[label_plot_idx].set_ylabel('Wortanzahl')
-                axs_corr[label_plot_idx].tick_params(axis='x', rotation=45)
-
-                # Buchstabenanzahl vs. Label untersuchen (Boxplot)
-                self.log(f'Untersuche Korrelation zwischen Buchstabenanzahl und Labels für {file}')
-                sns.boxplot(x='label_name', y='letter_count', data=df, ax=axs_corrl[label_plot_idx])
-                axs_corrl[label_plot_idx].set_title(f'Boxplot: Buchstabenanzahl pro Label ({file})')
-                axs_corrl[label_plot_idx].set_xlabel('Label')
-                axs_corrl[label_plot_idx].set_ylabel('Buchstabenanzahl')
-                axs_corrl[label_plot_idx].tick_params(axis='x', rotation=45)
-                label_plot_idx += 1
-
-            # Jahres-Analysen (nur wenn vorhanden)
-            if 'year' in df.columns and 'label_name' in df.columns:
-                self.log(f'Erzeuge Jahresanalyseplots für {file} Daten')
-
-                fig_year, axs_year = plt.subplots(3, 1, figsize=(14, 18))
-
-                # 1. Heatmap (Year vs. Label)
-                pivot_table = df.pivot_table(index='label_name', columns='year', aggfunc='size', fill_value=0)
-                sns.heatmap(pivot_table, annot=True, fmt='d', cmap='Blues', ax=axs_year[0])
-                axs_year[0].set_title('Heatmap: Verteilung der Labels über die Jahre')
-                axs_year[0].set_xlabel('Jahr')
-                axs_year[0].set_ylabel('Label')
-
-                # 2. Stacked Bar Plot (by Year und Label)
-                label_year_counts = df.groupby(['year', 'label_name']).size().unstack(fill_value=0)
-                label_year_counts.plot(kind='bar', stacked=True, ax=axs_year[1])
-                axs_year[1].set_title('Stacked Bar: Label-Verteilung pro Jahr')
-                axs_year[1].set_xlabel('Jahr')
-                axs_year[1].set_ylabel('Anzahl der Beispiele')
-                axs_year[1].legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-
-                # 3. Boxplot Jahr/Label
-                sns.boxplot(x='label_name', y='year', data=df, ax=axs_year[2])
-                axs_year[2].set_title('Boxplot: Jahresverteilung pro Label')
-                axs_year[2].set_xlabel('Label')
-                axs_year[2].set_ylabel('Jahr')
-                axs_year[2].tick_params(axis='x', rotation=45)
-
-                fig_year.tight_layout()
-
-                if 'train' in file.lower():
-                    fig_year.savefig(self.result_path + '\\year_analysis_train.png')
-                elif 'dev' in file.lower() or 'development' in file.lower():
-                    fig_year.savefig(self.result_path + '\\year_analysis_dev.png')
-
-                plt.close(fig_year)
-
-        # Plots speichern
-        fig_labels.tight_layout()
-        fig_labels.savefig(self.result_path + '\\label_distribution.png')
-        plt.close(fig_labels)
-
-        fig_words.tight_layout()
-        fig_words.savefig(self.result_path + '\\count_words_distribution.png')
-        plt.close(fig_words)
-        
-        fig_letters.tight_layout()
-        fig_letters.savefig(self.result_path + '\\lettercount_vs_label.png')
-        plt.close(fig_letters)
-        
-        fig_corr.tight_layout()
-        fig_corr.savefig(self.result_path + '\\wordcount_vs_label.png')
-        plt.close(fig_corr)
-
-        self.log('Alle kombinierten Diagramme gespeichert.')
 
     # Trainiert Bert-Automodel mit Validation-Daten ohne Labels (kein optimieren nach Accuracy, resultierende Accuracy bei 8 Epochen >60%)
     def train_auto_model(self, test = False):
@@ -261,7 +117,7 @@ class CaseStudy:
 
         # Model vorbereiten
         model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, 
-                                                                    num_labels=len(self.label_map))
+                                                                    num_labels=len(self.label_name))
         
         # Trainings-Argumente definieren
         training_args = TrainingArguments(
@@ -515,6 +371,8 @@ class CaseStudy:
         dump(scaler, self.model_directory + '\\word_count_scaler.joblib')
 
         self.log(f'''Trainiertes Model unter '{self.model_directory}' gespeichert''')
+    
+
 
     # Läd Model aus Results-Pfad, evaluiert Model mit Development-Daten, self.loged Klassifikationsbericht in Konsole und speichert Confusion-Matrix in Results-Pfad
     def evaluate_model(self, custom_model = False):
@@ -612,7 +470,7 @@ class CaseStudy:
 
         # Schöne Labels ergänzen
         self.df_development['true_label_name'] = self.df_development['label_name']
-        self.df_development['predicted_label_name'] = self.df_development['predicted_label'].map(self.label_map)
+        self.df_development['predicted_label_name'] = self.df_development['predicted_label'].map(self.label_name)
 
         # Excel speichern
         self.df_development[['id', 'year', 'full_text', 
@@ -626,9 +484,9 @@ class CaseStudy:
         y_pred = self.df_development['predicted_label']
 
         self.log('Klassifikationsbericht:')
-        self.log(classification_report(y_true, y_pred, target_names=[self.label_map[i] for i in range(20)], digits=3))
+        self.log(classification_report(y_true, y_pred, target_names=[self.label_name[i] for i in range(20)], digits=3))
         # Classification Report als Dict
-        report_dict = classification_report(y_true, y_pred, target_names=[self.label_map[i] for i in range(20)], 
+        report_dict = classification_report(y_true, y_pred, target_names=[self.label_name[i] for i in range(20)], 
                                             digits=3, output_dict=True)
 
         # In DataFrame konvertieren und als png speichern
@@ -643,7 +501,7 @@ class CaseStudy:
         cm = confusion_matrix(y_true, y_pred)
 
         plt.figure(figsize=(14,12))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_map[i] for i in range(20)], yticklabels=[self.label_map[i] for i in range(20)])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(20)], yticklabels=[self.label_name[i] for i in range(20)])
         plt.xlabel('Vorhergesagtes Label')
         plt.ylabel('Wahres Label')
         plt.title('Konfusionsmatrix - Entwicklungsdatensatz')
@@ -697,21 +555,16 @@ class CaseStudy:
                 line = f"{param} = {value}"
                 f.write(line + '\n')
 
-        self.log(f'Parameter gespeichert unter {filepath} ')
+        #self.log(f'Parameter gespeichert unter {filepath} ')
 
 
 
 
-    def prepare_full_text(self, row):
-        '''Erstellt full_text Spalte.'''
-        context_text = row['context_text']
-        target_sentence = row['target']
-        return f'{context_text} {target_sentence}'
 
     def model_init(self):
         model = CustomBert(
-            num_labels=len(self.label_map),
-            num_superclasses=len(set(self.label_to_superlabel.values())),
+            num_labels=len(self.label_name),
+            num_superclasses=len(set(self.label_superlabel.values())),
             additional_feature_dim=self.relevant_words + 1,
             pretrained=self.pretrained_model_name,
             context_target_ratio=self.context_target_ratio
@@ -756,8 +609,8 @@ class CaseStudy:
         '''Läd zuvor gespeichertes trainiertes Modell und berechnet Ladezeit.'''
         start_time = time.time()
         model = CustomBert(
-            num_labels=len(self.label_map),
-            num_superclasses=len(set(self.label_to_superlabel.values())),
+            num_labels=len(self.label_name),
+            num_superclasses=len(set(self.label_superlabel.values())),
             additional_feature_dim=self.relevant_words + 1,  
             pretrained=self.pretrained_model_name,
             context_target_ratio=self.context_target_ratio
@@ -815,17 +668,6 @@ class CaseStudy:
         plt.tight_layout()
         plt.savefig(self.result_path + '\\classification_report.png', dpi=300)
         plt.close()
+    
 
-    def start(self, analysis = False, training = False, evaluation = False, custom_model = False):
-        '''Funktion um flexiblen Aufruf relevanter Funktionen zu erleichtern.'''
-        if analysis:
-            self.analyse_data()
-
-        if training:
-            if custom_model:
-                self.train_custom_model()
-            else:
-                self.train_auto_model()
-            
-        if evaluation:
-            self.evaluate_model(custom_model)
+test = CaseStudy(trial=True)
