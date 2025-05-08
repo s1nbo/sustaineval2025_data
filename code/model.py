@@ -76,7 +76,7 @@ class Model:
             self.data.append(current_file)
 
 
-
+    # START HERE TODO TOMORROW
     # Trainiert Bert-Automodel mit Validation-Daten ohne Labels (kein optimieren nach Accuracy, resultierende Accuracy bei 8 Epochen >60%)
     def train_auto_model(self, test = False):
         with open(self.parameter_file, 'a', encoding='utf-8') as f:
