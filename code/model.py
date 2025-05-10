@@ -77,45 +77,27 @@ class Model:
 
 
     # START HERE TODO TOMORROW
-    # Trainiert Bert-Automodel mit Validation-Daten ohne Labels (kein optimieren nach Accuracy, resultierende Accuracy bei 8 Epochen >60%)
-    def train_auto_model(self, test = False):
-        with open(self.parameter_file, 'a', encoding='utf-8') as f:
-            f.write("\nmodel = auto\n")
-        # Huggingface Datasets erstellen        
-        train_dataset = HFDataset.from_pandas(self.df_training[['full_text', 'task_a_label']])
-        val_dataset = HFDataset.from_pandas(self.df_validation[['full_text']])
+    # Trains Bert-Automodel with validation datat without labels
+    def train_auto_model(self):
+        with open(self.parameter_file, 'a') as file:
+            file.write("\nmodel = auto\n")
+        
+        # Create Hugging Face Dataset        
+        train_dataset = HFDataset.from_pandas(self.df_training[['context', 'task_a_label']])
+        val_dataset = HFDataset.from_pandas(self.df_validation[['context']])
 
-        self.log('Anzahl der Beispiele im Trainingsdatensatz:', len(train_dataset))
-        self.log('Anzahl der Beispiele im Validierungsdatensatz:', len(val_dataset))
-        self.log('Features im Trainingsdatensatz:', train_dataset.features)
-        self.log('Features im Validierungsdatensatz:', val_dataset.features)
-
-        # Tokenizer vorbereiten
+        # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
 
         def tokenize_sample(example):
-            return self.tokenizer(example['full_text'], truncation=True)
+            return self.tokenizer(example['context'], truncation=True)
 
-        # Tokenisieren
-        tokenized_train = train_dataset.map(tokenize_sample, batched=True)
-        tokenized_val = val_dataset.map(tokenize_sample, batched=True)
-        self.log(f'tokenized_train keys: {tokenized_train.column_names}')
-        self.log(f'tokenized_val keys: {tokenized_val.column_names}')
+        tokenized_train = train_dataset.map(tokenize_sample, batched=True).set_format('torch')
+        tokenized_val = val_dataset.map(tokenize_sample, batched=True).set_format('torch')
 
-        if test:
-            # Datengröße reduzieren für schnelles Testen
-            tokenized_train = tokenized_train.select(range(5))
-            tokenized_val = tokenized_val.select(range(5))
 
-        # Bei Training: Spalte für Trainer umbenennen
-        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
-        tokenized_train.set_format('torch')
-
-        self.log('Format von tokenized_train:', tokenized_train.format)
-        self.log('Keys von tokenized_train[0]:', tokenized_train[0].keys())
-
-        # Model vorbereiten
+        # Model preparation
         model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, 
                                                                     num_labels=len(self.label_name))
         
@@ -144,17 +126,19 @@ class Model:
 
         # Startzeit merken
         start_time = time.time()
-        self.log('Starte Training')
+        print('Start Training')
         trainer.train()
         end_time = time.time()
 
         # Dauer berechnen
         training_duration = end_time - start_time
-        self.log('Training abgeschlossen in {:.2f} Sekunden.'.format(training_duration))
+        print(f'Finished Training in {training_duration:.4f} seconds.')
 
         # Model speichern
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
+
+
 
     # Trainiert customized Bert-Model mit Split der Trainingdaten (Optimierung nach Accuracy, target und context getrennt übergeben, superlabels hinzugefügt, Gewichtung auf Target)
     def train_custom_model(self):
@@ -167,9 +151,8 @@ class Model:
         word_count_scaled = scaler.fit_transform(self.df_training[['word_count']]) 
 
         # TF-IDF erstellen
-        self.log('Erstelle TF-IDF für beste Feature Auswahl')
         vectorizer = TfidfVectorizer(max_features=3000, ngram_range=(1, 2))  # erstmal großzügig
-        X_tfidf = vectorizer.fit_transform(self.df_training['full_text'])
+        X_tfidf = vectorizer.fit_transform(self.df_training['context'])
 
         # Labels laden
         y = self.df_training['task_a_label'].values
@@ -184,13 +167,12 @@ class Model:
 
         # Neuer Vectorizer nur mit den besten Features trainieren
         vectorizer_selected = TfidfVectorizer(vocabulary=selected_feature_names)
-        X_selected_final = vectorizer_selected.fit_transform(self.df_training['full_text']).toarray()
+        X_selected_final = vectorizer_selected.fit_transform(self.df_training['context']).toarray()
 
         # Wortanzahl anhängen (axis=1 = spaltenweise)
         X_combined = np.concatenate([X_selected_final, word_count_scaled], axis=1)
 
         # Tokenizer für BERT
-        self.log(f'''Lade BertTokenizer {self.pretrained_model_name} ''')
         self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
 
         # Tokenisieren
@@ -223,11 +205,6 @@ class Model:
             stratify=stratify,
             random_state=42)
             
-        self.log(f'Train idx shape: {train_idx.shape}')
-        self.log(f'Val idx shape: {val_idx.shape}')
-        self.log(f'X_combined shape: {X_combined.shape}')
-        self.log(f'Labels shape: {labels.shape}')
-        self.log(f'Super labels shape: {super_labels.shape}')
 
         # Split von TF-IDF Matrix
         X_train_selected = X_combined[train_idx]
@@ -392,7 +369,7 @@ class Model:
             word_count_scaled = scaler.transform(self.df_development[['word_count']])
             
             # TF-IDF Features erzeugen 
-            X_tfidf = vectorizer_selected.transform(self.df_development['full_text']).toarray()
+            X_tfidf = vectorizer_selected.transform(self.df_development['context']).toarray()
 
             # Wortanzahl anhängen
             X_combined = np.concatenate([X_tfidf, word_count_scaled], axis=1)
@@ -430,15 +407,15 @@ class Model:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
             # Entwicklungstexte als Dataset vorbereiten
-            dev_texts = self.df_development['full_text'].tolist()
-            dev_dataset = HFDataset.from_dict({'full_text': dev_texts})
+            dev_texts = self.df_development['context'].tolist()
+            dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
             # Tokenizer-Funktion
             def tokenize_batch(batch):
-                return self.tokenizer(batch['full_text'], truncation=True)
+                return self.tokenizer(batch['context'], truncation=True)
 
             # Tokenisieren
-            dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['full_text'])
+            dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
 
         # Model auf richtiges Gerät verschieben
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
@@ -473,29 +450,29 @@ class Model:
         self.df_development['predicted_label_name'] = self.df_development['predicted_label'].map(self.label_name)
 
         # Excel speichern
-        self.df_development[['id', 'year', 'full_text', 
+        self.df_development[['id', 'year', 'context', 
                              'true_label_name', 'predicted_label_name', 
                              'confidence_score']].to_excel(self.result_path + '\\development_predictions.xlsx', index=False)
 
-        self.log(f'''Vorhersagen gespeichert unter: {self.result_path} - development_predictions.xlsx''')
+        print(f'''Vorhersagen gespeichert unter: {self.result_path} - development_predictions.xlsx''')
 
         # Metriken berechnen
         y_true = self.df_development['task_a_label']
         y_pred = self.df_development['predicted_label']
 
-        self.log('Klassifikationsbericht:')
-        self.log(classification_report(y_true, y_pred, target_names=[self.label_name[i] for i in range(20)], digits=3))
-        # Classification Report als Dict
+        '''
+        # Classification Report for all classes Maybe we need this
+        
         report_dict = classification_report(y_true, y_pred, target_names=[self.label_name[i] for i in range(20)], 
                                             digits=3, output_dict=True)
 
-        # In DataFrame konvertieren und als png speichern
         df_report = pd.DataFrame(report_dict).transpose()
-        self.create_classification_report(df_report)
+        '''
+
 
         # Genauigkeit berechnen
         acc = accuracy_score(y_true, y_pred)
-        self.log(f'Genauigkeit: {acc:.4f}')
+        print(f'Accuracy: {acc:.4f}')
 
         # Confusion Matrix
         cm = confusion_matrix(y_true, y_pred)
@@ -511,31 +488,10 @@ class Model:
         plt.savefig(self.result_path + '\\confusion_matrix.png')
         plt.close()
 
-        self.log(f'''Konfusionsmatrix gespeichert unter: {self.result_path} - confusion_matrix.png''')
-
     ###########################################################
     # Hilfs-Funktionen
     ###########################################################
 
-
-    def log(self, message, values=None):
-        '''Protokolliert eine Nachricht mit aktuellem Datum und Uhrzeit.'''
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        if values is not None:
-            if isinstance(values, dict):
-                print(f'[{timestamp}] {message}')
-                for key, value in values.items():
-                    print(f'    {key}: {value}')
-            elif isinstance(values, pd.DataFrame):
-                print(f'[{timestamp}] {message}')
-                print(values.to_string(index=False))
-            elif isinstance(values, pd.Series):
-                print(f'[{timestamp}] {message}')
-                print(values.to_string())
-            else:
-                print(f'[{timestamp}] {message} {values}')
-        else:
-            print(f'[{timestamp}] {message}')   
 
     def save_current_parameters(self, filepath):
         # Manuell festgelegte Parameter, die du loggen willst – alle aus der Instanz
@@ -554,11 +510,6 @@ class Model:
                 value = getattr(self, param, None)
                 line = f"{param} = {value}"
                 f.write(line + '\n')
-
-        #self.log(f'Parameter gespeichert unter {filepath} ')
-
-
-
 
 
     def model_init(self):
@@ -623,48 +574,3 @@ class Model:
         duration = end_time - start_time
         self.log('Model erfolgreich geladen in {:.2f} Sekunden.'.format(duration))
         return model
-    
-    def create_classification_report(self, df_report):
-        # Round and format dataframe
-        df_main = df_report.iloc[:-3].copy()  # alles außer accuracy, macro avg, weighted avg
-        df_summary = df_report.iloc[-3:].copy()
-
-        # Formatierung
-        for col in ['precision', 'recall', 'f1-score']:
-            df_main[col] = df_main[col].apply(lambda x: f'{x*100:.2f} %')
-            df_summary[col] = df_summary[col].apply(lambda x: f'{x*100:.2f} %')
-        df_main['support'] = df_main['support'].astype(int)
-        df_summary['support'] = df_summary['support'].apply(lambda x: f'{x:.0f}')
-
-        # Plot mit 2 Tabellen: oben Klassen, unten zusammengefasst
-        fig = plt.figure(figsize=(12, len(df_main) * 0.4 + 2))
-        gs = gridspec.GridSpec(2, 1, height_ratios=[len(df_main), 3])
-
-        # Haupttabelle
-        ax_main = fig.add_subplot(gs[0])
-        ax_main.axis('off')
-        table_main = ax_main.table(cellText=df_main.values,
-                                colLabels=df_main.columns,
-                                rowLabels=df_main.index,
-                                loc='center',
-                                cellLoc='center')
-        table_main.auto_set_font_size(False)
-        table_main.set_fontsize(9)
-        table_main.scale(1, 1.4)
-
-        # Zusammenfassungstabelle
-        ax_summary = fig.add_subplot(gs[1])
-        ax_summary.axis('off')
-        table_summary = ax_summary.table(cellText=df_summary.values,
-                                        colLabels=df_summary.columns,
-                                        rowLabels=df_summary.index,
-                                        loc='center',
-                                        cellLoc='center')
-        table_summary.auto_set_font_size(False)
-        table_summary.set_fontsize(10)
-        table_summary.scale(1, self.context_target_ratio)
-
-        # Speichern
-        plt.tight_layout()
-        plt.savefig(self.result_path + '\\classification_report.png', dpi=300)
-        plt.close()
