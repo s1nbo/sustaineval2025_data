@@ -1,5 +1,11 @@
 import os
+import time
+
 import pandas as pd
+
+from datasets import Dataset as HFDataset
+from transformers import (AutoTokenizer, DataCollatorWithPadding, 
+                          AutoModelForSequenceClassification, TrainingArguments, Trainer)
 
 class Model:
     '''
@@ -76,7 +82,6 @@ class Model:
             self.data.append(current_file)
 
 
-    # START HERE TODO TOMORROW
     # Trains Bert-Automodel with validation datat without labels
     def train_auto_model(self):
         with open(self.parameter_file, 'a') as file:
@@ -98,39 +103,36 @@ class Model:
 
 
         # Model preparation
-        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, 
-                                                                    num_labels=len(self.label_name))
+        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels=len(self.label_name))
         
-        # Trainings-Argumente definieren
+        # Define Training Arguments
         training_args = TrainingArguments(
-            output_dir=self.result_path,                # Pfad an dem training checkpoints gespeichert werden
-            eval_strategy='steps',              
-            eval_steps=self.training_steps,             # nach wie vielen Schritten soll evaluiert werden
-            save_steps=self.training_steps,             # nach wie vielen Schritten soll gespeichert werden
-            logging_steps=int(self.training_steps*1/5), # nach wie vielen Schritten soll geloggt werden
-            num_train_epochs=self.epochs,               # Anzahl an Durchläufen des Training Datensatzes
-            learning_rate=self.learning_rate,   
-            weight_decay=self.weight_decay,
-            save_total_limit=1,
-            report_to='none'                            # kein zusätzliches externes logging
+            output_dir = self.result_path,                # Directory for saving the model
+            eval_strategy = 'steps',              
+            eval_steps = self.training_steps,             # After how many steps should be evaluated
+            save_steps = self.training_steps,             # After how many steps should the model be saved
+            logging_steps = int(self.training_steps*1/5), # After how many steps should be logged
+            num_train_epochs = self.epochs,               # Number of epochs to train
+            learning_rate = self.learning_rate,   
+            weight_decay = self.weight_decay,
+            save_total_limit = 1,
+            report_to = 'none'                            # No external tracking services
         )
 
-        # Trainer mit Metriken
+        # Trainer Object
         trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=tokenized_train,
-            eval_dataset=tokenized_val,
-            data_collator=data_collator
+            model = model,
+            args = training_args,
+            train_dataset = tokenized_train,
+            eval_dataset = tokenized_val,
+            data_collator = data_collator
         )
 
-        # Startzeit merken
+        # Training
         start_time = time.time()
         print('Start Training')
         trainer.train()
         end_time = time.time()
-
-        # Dauer berechnen
         training_duration = end_time - start_time
         print(f'Finished Training in {training_duration:.4f} seconds.')
 
@@ -140,6 +142,7 @@ class Model:
 
 
 
+    # START HERE TODO TOMORROW
     # Trainiert customized Bert-Model mit Split der Trainingdaten (Optimierung nach Accuracy, target und context getrennt übergeben, superlabels hinzugefügt, Gewichtung auf Target)
     def train_custom_model(self):
         with open(self.parameter_file, 'a', encoding='utf-8') as f:
