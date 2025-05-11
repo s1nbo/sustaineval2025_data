@@ -1,10 +1,12 @@
+from collections import Counter, defaultdict
 import os
 import time
 
 import pandas as pd
+import numpy as np
 
 from datasets import Dataset as HFDataset
-from transformers import (AutoTokenizer, DataCollatorWithPadding, 
+from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
 
 class Model:
@@ -35,7 +37,7 @@ class Model:
         self.relevant_words = 400 # Number of words to select for TF-IDF
         self.context_target_ratio = 1.1 # scaling of target vs context for evaluation
 
-        # These Paramaters are set by Optuna training 
+        # These Paramaters are set by Optuna training
         self.epochs = 8             # How many epochs to train
         self.learning_rate = 2e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.01    # L2-regularization, to prevent overfitting
@@ -68,7 +70,8 @@ class Model:
         
         # Load Data
         self.data_files = ['trial' if trial else 'training','validation','development']
-        self.data = []
+        self.data = defaultdict(pd.DataFrame)
+
 
         for file_name in self.data_files:
             # Read data from jsonl files
@@ -79,7 +82,7 @@ class Model:
             # Prepare data for training
             # change context from list to string
             current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
-            self.data.append(current_file)
+            self.data[file_name] = (current_file)
 
 
     # Trains Bert-Automodel with validation datat without labels
@@ -88,8 +91,8 @@ class Model:
             file.write("\nmodel = auto\n")
         
         # Create Hugging Face Dataset        
-        train_dataset = HFDataset.from_pandas(self.df_training[['context', 'task_a_label']])
-        val_dataset = HFDataset.from_pandas(self.df_validation[['context']])
+        train_dataset = HFDataset.from_pandas(self.data['training'][['context', 'task_a_label']])
+        val_dataset = HFDataset.from_pandas(self.data['validation'][['context']])
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
@@ -136,62 +139,39 @@ class Model:
         training_duration = end_time - start_time
         print(f'Finished Training in {training_duration:.4f} seconds.')
 
-        # Model speichern
+        # Save Model
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
 
 
-
-    # START HERE TODO TOMORROW
-    # Trainiert customized Bert-Model mit Split der Trainingdaten (Optimierung nach Accuracy, target und context getrennt übergeben, superlabels hinzugefügt, Gewichtung auf Target)
-    def train_custom_model(self):
+    # START HERE TODO 
+   
+    def train_custom_model(self, optuna_training = False):
+        '''
+        Trains customized Bert-Model with split of training data (optimization based on accuracy, target and context passed separately)
+        @param optuna_training: Boolean, should Optuna Hyperparameter Tuning be used?
+        '''
         with open(self.parameter_file, 'a', encoding='utf-8') as f:
             f.write("\nmodel = custom\n")
 
-        self.log('Starte Training Vorbereitungen')
-        # Bereite Spalte 'text lenght' als feature vor
-        scaler = MinMaxScaler()
-        word_count_scaled = scaler.fit_transform(self.df_training[['word_count']]) 
+        print('Start custom model training')
 
-        # TF-IDF erstellen
-        vectorizer = TfidfVectorizer(max_features=3000, ngram_range=(1, 2))  # erstmal großzügig
-        X_tfidf = vectorizer.fit_transform(self.df_training['context'])
+        # Extract labels
+        labels =  self.data['training']['task_a_label'].values
 
-        # Labels laden
-        y = self.df_training['task_a_label'].values
-
-        # Chi² Feature Selektion
-        selector = SelectKBest(score_func=chi2, k=self.relevant_words)  # Wähle die x besten Features
-        selector.fit(X_tfidf, y)
-
-        # Zugriff auf die ausgewählten Feature-Namen
-        selected_feature_indices = selector.get_support(indices=True)
-        selected_feature_names = [vectorizer.get_feature_names_out()[i] for i in selected_feature_indices]
-
-        # Neuer Vectorizer nur mit den besten Features trainieren
-        vectorizer_selected = TfidfVectorizer(vocabulary=selected_feature_names)
-        X_selected_final = vectorizer_selected.fit_transform(self.df_training['context']).toarray()
-
-        # Wortanzahl anhängen (axis=1 = spaltenweise)
-        X_combined = np.concatenate([X_selected_final, word_count_scaled], axis=1)
-
-        # Tokenizer für BERT
+        # Tokenizer for BERT
         self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
 
-        # Tokenisieren
+        # Tokenize the text
         encodings = self.tokenizer(
-            text=list(self.df_training['context_text']),
-            text_pair=list(self.df_training['target']),
+            text=list( self.data['training']['context_text']),
+            text_pair=list( self.data['training']['target']),
             truncation=True,
             padding=True,
             max_length=256,
             return_token_type_ids=True
         )
-
-        # Labels extrahieren
-        self.log('Bereite Daten für Trainer vor')
-        labels = self.df_training['task_a_label'].values
-        super_labels = self.df_training['super_label'].values
+        
 
         # Train-Test Split (stratify funktioniert nur wenn mindestens 2 Fälle pro Label verfuegbar sind)
         label_counts = Counter(labels)
@@ -221,18 +201,16 @@ class Model:
         train_dataset = SustainDataset(
             encodings_train,
             X_train_selected,
-            labels[train_idx],
-            super_labels[train_idx]
+            labels[train_idx]
         )
 
         val_dataset = SustainDataset(
             encodings_val,
             X_val_selected,
-            labels[val_idx],
-            super_labels[val_idx]
+            labels[val_idx]
         )
 
-        optuna_training = False
+        
         if optuna_training:
             # definiere fixe parameter für training arguments
             base_args_dict = {
@@ -332,28 +310,17 @@ class Model:
             callbacks=[LogSegmentScalingCallback()]
         )
 
-        # Training starten
+        print('Start training final model')
         start_time = time.time()
-        self.log('Trainiere finales Modell mit besten Parametern')
         final_trainer.train()
-
-        # Dauer berechnen
         end_time = time.time()
         training_duration = end_time - start_time
-        self.log('Training abgeschlossen in {:.2f} Sekunden.'.format(training_duration))
+        print(f'Finished Training in {training_duration:.4f} seconds.')
 
         # Model speichern
         final_trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
         
-        # Speichern des finalen Vectorizers
-        dump(vectorizer_selected, self.model_directory + '\\vectorizer_selected.joblib')
-        dump(scaler, self.model_directory + '\\word_count_scaler.joblib')
-
-        self.log(f'''Trainiertes Model unter '{self.model_directory}' gespeichert''')
-    
-
-
     # Läd Model aus Results-Pfad, evaluiert Model mit Development-Daten, self.loged Klassifikationsbericht in Konsole und speichert Confusion-Matrix in Results-Pfad
     def evaluate_model(self, custom_model = False):
 
@@ -363,16 +330,11 @@ class Model:
             # Modelklasse importieren und Modelgewichte laden
             model = self.load_custombert_model(self.model_directory + '\\model.safetensors')
 
-            self.log('Lade scaler und verctorizer aus model directory')
             # Lade Vectorizer mit zuvor X wichtigsten Begriffen vorbereitet; x = self.relevant_words 
             vectorizer_selected = load(self.model_directory + '\\vectorizer_selected.joblib')
             
-            # Lade scaler für word count feature und skaliere
-            scaler = load(self.model_directory + '\\word_count_scaler.joblib')
-            word_count_scaled = scaler.transform(self.df_development[['word_count']])
-            
             # TF-IDF Features erzeugen 
-            X_tfidf = vectorizer_selected.transform(self.df_development['context']).toarray()
+            X_tfidf = vectorizer_selected.transform( self.data['development']['context']).toarray()
 
             # Wortanzahl anhängen
             X_combined = np.concatenate([X_tfidf, word_count_scaled], axis=1)
@@ -381,8 +343,8 @@ class Model:
             self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
 
             # Tokenisieren
-            encodings = self.tokenizer(  text=list(self.df_development['context_text']),
-                                    text_pair=list(self.df_development['target']),
+            encodings = self.tokenizer(  text=list( self.data['development']['context_text']),
+                                    text_pair=list( self.data['development']['target']),
                                     truncation=True,
                                     padding=True,
                                     max_length=256,
@@ -391,8 +353,8 @@ class Model:
                                  )
 
             # Labels laden 
-            labels_dev = self.df_development['task_a_label'].values
-            super_labels_dev = self.df_development['super_label'].values
+            labels_dev =  self.data['development']['task_a_label'].values
+            super_labels_dev =  self.data['development']['super_label'].values
 
             # === SustainDataset für Development bauen ===
             dev_dataset = SustainDataset(
@@ -410,7 +372,7 @@ class Model:
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
             # Entwicklungstexte als Dataset vorbereiten
-            dev_texts = self.df_development['context'].tolist()
+            dev_texts =  self.data['development']['context'].tolist()
             dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
             # Tokenizer-Funktion
@@ -445,23 +407,23 @@ class Model:
                     predictions.append((pred.item(), prob[pred].item()))
 
         # Ergebnisse in DataFrame speichern
-        self.df_development['predicted_label'] = [p[0] for p in predictions]
-        self.df_development['confidence_score'] = [p[1] for p in predictions]
+        self.data['development']['predicted_label'] = [p[0] for p in predictions]
+        self.data['development']['confidence_score'] = [p[1] for p in predictions]
 
         # Schöne Labels ergänzen
-        self.df_development['true_label_name'] = self.df_development['label_name']
-        self.df_development['predicted_label_name'] = self.df_development['predicted_label'].map(self.label_name)
+        self.data['development']['true_label_name'] =  self.data['development']['label_name']
+        self.data['development']['predicted_label_name'] =  self.data['development']['predicted_label'].map(self.label_name)
 
         # Excel speichern
-        self.df_development[['id', 'year', 'context', 
+        self.data['development'][['id', 'year', 'context', 
                              'true_label_name', 'predicted_label_name', 
                              'confidence_score']].to_excel(self.result_path + '\\development_predictions.xlsx', index=False)
 
         print(f'''Vorhersagen gespeichert unter: {self.result_path} - development_predictions.xlsx''')
 
         # Metriken berechnen
-        y_true = self.df_development['task_a_label']
-        y_pred = self.df_development['predicted_label']
+        y_true =  self.data['development']['task_a_label']
+        y_pred =  self.data['development']['predicted_label']
 
         '''
         # Classification Report for all classes Maybe we need this
