@@ -147,9 +147,8 @@ class Model:
         # Save Model
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
-
-    # TODO        
-    # Läd Model aus Results-Pfad, evaluiert Model mit Development-Daten, self.loged Klassifikationsbericht in Konsole und speichert Confusion-Matrix in Results-Pfad
+       
+    # Loads the model and tokenizer and evaluates the model on the development set
     def evaluate_model(self, custom_model = False):
 
         print('Evaluating Model')
@@ -170,8 +169,7 @@ class Model:
         dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
 
         # Use GPU
-        # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        device = torch.device('cuda')
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model.to(device)
 
         # DataLoader
