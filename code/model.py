@@ -295,3 +295,11 @@ class Model:
             'eval_precision_macro': precision_score(labels, preds, average='macro', zero_division=0),
             'eval_recall_macro': recall_score(labels, preds, average='macro', zero_division=0)
         }
+
+model = Model()
+print('TRAINING AUTO MODEL')
+model.train_auto_model()
+print('EVALUATING AUTO MODEL')
+model.evaluate_model()
+
+
