@@ -1,13 +1,18 @@
-from collections import Counter, defaultdict
+from collections import defaultdict
 import os
 import time
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+import torch
+from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score, recall_score)
 
 class Model:
     '''
@@ -147,69 +152,29 @@ class Model:
     # Läd Model aus Results-Pfad, evaluiert Model mit Development-Daten, self.loged Klassifikationsbericht in Konsole und speichert Confusion-Matrix in Results-Pfad
     def evaluate_model(self, custom_model = False):
 
-        self.log('Starte Evaluation mit Entwicklungsdaten')
-        if custom_model:
-            self.log('Lade trainiertes Model')
-            # Modelklasse importieren und Modelgewichte laden
-            model = self.load_custombert_model(self.model_directory + '\\model.safetensors')
+        print('Evaluating Model')
+        model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
+        model.eval()
 
-            # Lade Vectorizer mit zuvor X wichtigsten Begriffen vorbereitet; x = self.relevant_words 
-            vectorizer_selected = load(self.model_directory + '\\vectorizer_selected.joblib')
-            
-            # TF-IDF Features erzeugen 
-            X_tfidf = vectorizer_selected.transform( self.data['development']['context']).toarray()
+        print('Loading Tokenizer')
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
-            # Wortanzahl anhängen
-            X_combined = np.concatenate([X_tfidf, word_count_scaled], axis=1)
+        # Development Dataset
+        dev_texts =  self.data['development']['context'].tolist()
+        dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
-            self.log('Bereite tokenizer vor')
-            self.tokenizer = BertTokenizer.from_pretrained(self.pretrained_model_name)
+        # Tokenizing
+        def tokenize_batch(batch):
+            return self.tokenizer(batch['context'], truncation=True)
+        
+        dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
 
-            # Tokenisieren
-            encodings = self.tokenizer(  text=list( self.data['development']['context_text']),
-                                    text_pair=list( self.data['development']['target']),
-                                    truncation=True,
-                                    padding=True,
-                                    max_length=256,
-                                    return_token_type_ids=True,
-                                    return_tensors='np'  # Ausgabe als numpy arrays
-                                 )
-
-            # Labels laden 
-            labels_dev =  self.data['development']['task_a_label'].values
-            super_labels_dev =  self.data['development']['super_label'].values
-
-            # === SustainDataset für Development bauen ===
-            dev_dataset = SustainDataset(
-                {key: encodings[key] for key in ['input_ids', 'attention_mask', 'token_type_ids']},
-                X_combined,
-                labels_dev,
-                super_labels_dev
-            )
-
-        else:
-            model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
-            model.eval()
-
-            self.log('Lade Tokenizer')
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
-
-            # Entwicklungstexte als Dataset vorbereiten
-            dev_texts =  self.data['development']['context'].tolist()
-            dev_dataset = HFDataset.from_dict({'context': dev_texts})
-
-            # Tokenizer-Funktion
-            def tokenize_batch(batch):
-                return self.tokenizer(batch['context'], truncation=True)
-
-            # Tokenisieren
-            dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
-
-        # Model auf richtiges Gerät verschieben
-        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        # Use GPU
+        # device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        device = torch.device('cuda')
         model.to(device)
 
-        # DataLoader vorbereiten
+        # DataLoader
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
 
@@ -267,13 +232,13 @@ class Model:
 
         plt.figure(figsize=(14,12))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(20)], yticklabels=[self.label_name[i] for i in range(20)])
-        plt.xlabel('Vorhergesagtes Label')
-        plt.ylabel('Wahres Label')
-        plt.title('Konfusionsmatrix - Entwicklungsdatensatz')
+        plt.xlabel('Predicted Label')
+        plt.ylabel('True Label')
+        plt.title('Confusion Matrix')
         plt.xticks(rotation=90)
         plt.yticks(rotation=0)
         plt.tight_layout()
-        plt.savefig(self.result_path + '\\confusion_matrix.png')
+        plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
         plt.close()
 
     ###########################################################
