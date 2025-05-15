@@ -63,15 +63,6 @@ class Model:
             17: 'Human Rights',                  18: 'Corporate Citizenship',
             19: 'Political Influence',           20: 'Conduct that Complies with the Law and Policy'
         }
-
-        # DO WE NEED THIS? TODO
-        self.label_superlabel = {
-            1: 0, 2: 0, 3: 0, 4: 0,                             # 0 Strategy
-            5: 1, 6: 1, 7: 1, 8: 1, 9: 1, 10: 1,                # 1 Process Management
-            11: 2, 12: 2, 13: 2,                                # 2 Environment
-            14: 3, 15: 3, 16: 3, 17: 3, 18: 3, 19: 3, 20: 3     # 3 Society
-        }
-
         
         # Load Data
         self.data_files = ['trial' if trial else 'training','validation','development']
@@ -96,9 +87,12 @@ class Model:
             file.write("\nmodel = auto\n")
         
         # Create Hugging Face Dataset        
-        train_dataset = HFDataset.from_pandas(self.data['training'][['context', 'task_a_label']])
+        train_dataset = HFDataset.from_pandas(self.data['trial'][['context', 'task_a_label']])
         val_dataset = HFDataset.from_pandas(self.data['validation'][['context']])
 
+        print('Train Dataset:', train_dataset)
+        print('Validation Dataset:', val_dataset)
+        
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
@@ -106,8 +100,15 @@ class Model:
         def tokenize_sample(example):
             return self.tokenizer(example['context'], truncation=True)
 
-        tokenized_train = train_dataset.map(tokenize_sample, batched=True).set_format('torch')
-        tokenized_val = val_dataset.map(tokenize_sample, batched=True).set_format('torch')
+        tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+        tokenized_val = val_dataset.map(tokenize_sample, batched=True)
+
+        print(tokenized_train)
+        print(tokenized_val)
+
+        train_dataset = train_dataset.rename_column('task_a_label', 'labels')
+
+
 
 
         # Model preparation
@@ -129,11 +130,11 @@ class Model:
 
         # Trainer Object
         trainer = Trainer(
-            model = model,
-            args = training_args,
-            train_dataset = tokenized_train,
-            eval_dataset = tokenized_val,
-            data_collator = data_collator
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=val_dataset,
+            data_collator=data_collator
         )
 
         # Training
@@ -168,7 +169,7 @@ class Model:
         
         dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
 
-        # Use GPU
+        # Use GPU or CPU
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model.to(device)
 
@@ -296,7 +297,7 @@ class Model:
             'eval_recall_macro': recall_score(labels, preds, average='macro', zero_division=0)
         }
 
-model = Model()
+model = Model(trial=True)
 print('TRAINING AUTO MODEL')
 model.train_auto_model()
 print('EVALUATING AUTO MODEL')
