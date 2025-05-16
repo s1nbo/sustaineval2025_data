@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
-from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score, recall_score)
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score, recall_score, classification_report)
 
 class Model:
     '''
@@ -81,8 +81,7 @@ class Model:
             self.data[file_name] = (current_file)
 
 
-    # Trains Bert-Automodel with validation datat without labels
-    def train_auto_model(self):
+    def train_auto_model(self, test = True):
         with open(self.parameter_file, 'a') as file:
             file.write("\nmodel = auto\n")
         
@@ -103,12 +102,16 @@ class Model:
         tokenized_train = train_dataset.map(tokenize_sample, batched=True)
         tokenized_val = val_dataset.map(tokenize_sample, batched=True)
 
+        if test:
+            # For fast testing, select only a few samples
+            tokenized_train = tokenized_train.select(range(5))
+            tokenized_val = tokenized_val.select(range(5))
+
         print(tokenized_train)
         print(tokenized_val)
 
-        train_dataset = train_dataset.rename_column('task_a_label', 'labels')
-
-
+        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+        tokenized_train.set_format('torch')
 
 
         # Model preparation
@@ -132,8 +135,8 @@ class Model:
         trainer = Trainer(
             model=model,
             args=training_args,
-            train_dataset=train_dataset,
-            eval_dataset=val_dataset,
+            train_dataset=tokenized_train,
+            eval_dataset=tokenized_val,
             data_collator=data_collator
         )
 
@@ -148,7 +151,8 @@ class Model:
         # Save Model
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
-       
+
+
     # Loads the model and tokenizer and evaluates the model on the development set
     def evaluate_model(self, custom_model = False):
 
@@ -177,7 +181,7 @@ class Model:
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
         dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
 
-        # Vorhersagen
+        # Predictions
         predictions = []
 
         with torch.no_grad():
@@ -193,36 +197,19 @@ class Model:
                 for pred, prob in zip(preds, probs):
                     predictions.append((pred.item(), prob[pred].item()))
 
-        # Ergebnisse in DataFrame speichern
+        # Save predictions to DataFrame
         self.data['development']['predicted_label'] = [p[0] for p in predictions]
         self.data['development']['confidence_score'] = [p[1] for p in predictions]
 
-        # Schöne Labels ergänzen
-        self.data['development']['true_label_name'] =  self.data['development']['label_name']
-        self.data['development']['predicted_label_name'] =  self.data['development']['predicted_label'].map(self.label_name)
-
-        # Excel speichern
-        self.data['development'][['id', 'year', 'context', 
-                             'true_label_name', 'predicted_label_name', 
-                             'confidence_score']].to_excel(self.result_path + '\\development_predictions.xlsx', index=False)
-
-        print(f'''Vorhersagen gespeichert unter: {self.result_path} - development_predictions.xlsx''')
-
-        # Metriken berechnen
+        
+        
+        # Calculate and save metrics
         y_true =  self.data['development']['task_a_label']
         y_pred =  self.data['development']['predicted_label']
 
-        '''
-        # Classification Report for all classes Maybe we need this
         
-        report_dict = classification_report(y_true, y_pred, target_names=[self.label_name[i] for i in range(20)], 
-                                            digits=3, output_dict=True)
 
-        df_report = pd.DataFrame(report_dict).transpose()
-        '''
-
-
-        # Genauigkeit berechnen
+        # Accuracy 
         acc = accuracy_score(y_true, y_pred)
         print(f'Accuracy: {acc:.4f}')
 
@@ -230,7 +217,7 @@ class Model:
         cm = confusion_matrix(y_true, y_pred)
 
         plt.figure(figsize=(14,12))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(20)], yticklabels=[self.label_name[i] for i in range(20)])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(1, 21)], yticklabels=[self.label_name[i] for i in range(1, 21)])
         plt.xlabel('Predicted Label')
         plt.ylabel('True Label')
         plt.title('Confusion Matrix')
@@ -238,7 +225,7 @@ class Model:
         plt.yticks(rotation=0)
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
-        plt.close()
+        plt.show()
 
     ###########################################################
     # Hilfs-Funktionen
@@ -299,7 +286,7 @@ class Model:
 
 model = Model(trial=True)
 print('TRAINING AUTO MODEL')
-model.train_auto_model()
+model.train_auto_model(test=False)
 print('EVALUATING AUTO MODEL')
 model.evaluate_model()
 
