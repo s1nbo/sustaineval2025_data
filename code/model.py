@@ -50,20 +50,19 @@ class Model:
         self.save_current_parameters(self.parameter_file)
         
         # Label Names
-        # Watch out I've updated the Keys to start at 1.
-        self.label_name = { 
-            1: 'Strategic Analysis and Action',   2: 'Materiality',
-            3: 'Objectives',                      4: 'Depth of the Value Chain',
-            5: 'Responsibility',                  6: 'Rules and Processes',
-            7: 'Control',                         8: 'Incentive Systems',
-            9: 'Stakeholder Engagement',         10: 'Innovation and Product Management',
-            11: 'Usage of Natural Resources',    12: 'Resource Management',
-            13: 'Climate-Relevant Emissions',    14: 'Employment Rights',
-            15: 'Equal Opportunities',           16: 'Qualifications',
-            17: 'Human Rights',                  18: 'Corporate Citizenship',
-            19: 'Political Influence',           20: 'Conduct that Complies with the Law and Policy'
+        self.label_name = {
+            0: 'Strategic Analysis and Action',   1: 'Materiality',
+            2: 'Objectives',                      3: 'Depth of the Value Chain',
+            4: 'Responsibility',                  5: 'Rules and Processes',
+            6: 'Control',                         7: 'Incentive Systems',
+            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management',
+            10: 'Usage of Natural Resources',     11: 'Resource Management',
+            12: 'Climate-Relevant Emissions',     13: 'Employment Rights',
+            14: 'Equal Opportunities',            15: 'Qualifications',
+            16: 'Human Rights',                   17: 'Corporate Citizenship',
+            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
         }
-        
+
         # Load Data
         self.data_files = ['trial' if trial else 'training','validation','development']
         self.data = defaultdict(pd.DataFrame)
@@ -78,6 +77,10 @@ class Model:
             # Prepare data for training
             # change context from list to string
             current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+            # change task_a_label to be zero-indexed
+            # print current file coulmns
+            if 'task_a_label' in current_file.columns:
+                current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
             self.data[file_name] = (current_file)
 
 
@@ -115,7 +118,7 @@ class Model:
 
 
         # Model preparation
-        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels=len(self.label_name))
+        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels= len(self.label_name))
         
         # Define Training Arguments
         training_args = TrainingArguments(
@@ -179,7 +182,7 @@ class Model:
 
         # DataLoader
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-        dev_loader = DataLoader(dev_dataset, batch_size=32, collate_fn=data_collator)
+        dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
 
         # Predictions
         predictions = []
@@ -217,7 +220,7 @@ class Model:
         cm = confusion_matrix(y_true, y_pred)
 
         plt.figure(figsize=(14,12))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(1, 21)], yticklabels=[self.label_name[i] for i in range(1, 21)])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(20)], yticklabels=[self.label_name[i] for i in range(20)])
         plt.xlabel('Predicted Label')
         plt.ylabel('True Label')
         plt.title('Confusion Matrix')
@@ -251,7 +254,7 @@ class Model:
 
 model = Model(trial=True)
 print('TRAINING AUTO MODEL')
-model.train_auto_model(test=True)
+model.train_auto_model(test=False)
 print('EVALUATING AUTO MODEL')
 model.evaluate_model()
 
