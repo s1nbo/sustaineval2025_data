@@ -18,7 +18,7 @@ class Model:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, trial = False, target = "validation"): # check if this hast to be trial or validation or whatever 
+    def __init__(self, target = "validation"): # check if this hast to be trial or validation or whatever 
         # Directory for results
         self.result_path = '../result'
         self.model_directory = os.path.join(self.result_path, 'checkpoints')
