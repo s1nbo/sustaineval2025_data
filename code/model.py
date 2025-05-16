@@ -179,7 +179,7 @@ class Model:
 
         # DataLoader
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-        dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
+        dev_loader = DataLoader(dev_dataset, batch_size=32, collate_fn=data_collator)
 
         # Predictions
         predictions = []
@@ -227,13 +227,8 @@ class Model:
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
         plt.show()
 
-    ###########################################################
-    # Hilfs-Funktionen
-    ###########################################################
-
 
     def save_current_parameters(self, filepath):
-        # Manuell festgelegte Parameter, die du loggen willst – alle aus der Instanz
         tracked_params = [
             "training_steps",
             "relevant_words",
@@ -251,42 +246,12 @@ class Model:
                 f.write(line + '\n')
 
 
-    def optuna_hp_space(self, trial):
-        return {
-            'learning_rate': trial.suggest_float('learning_rate', 1e-5, 5e-5, log=True),
-            'num_train_epochs': trial.suggest_int('num_train_epochs', 3, 10),
-            'per_device_train_batch_size': trial.suggest_categorical('per_device_train_batch_size', [8, 16, 32]),
-            'warmup_ratio': trial.suggest_float('warmup_ratio', 0.0, 0.2),
-            'weight_decay': trial.suggest_float('weight_decay', 0.0, 0.1)
-        }
 
-    def compute_metrics(self, eval_pred):
-        '''Funktion num Metriken in Training zu integrieren.'''
-        # Überprüfen, ob predictions ein Tuple sind
-        if isinstance(eval_pred.predictions, tuple):
-            # Wenn ja, nimm nur die erste Prediction (label_logits)
-            logits = eval_pred.predictions[0]
-        else:
-            # Wenn nein, normale Prediction
-            logits = eval_pred.predictions
 
-        preds = np.argmax(logits, axis=1)
-        labels = eval_pred.label_ids
-
-        # Sicherstellen, dass labels ein Array sind
-        if isinstance(labels, tuple):
-            labels = labels[0]
-
-        return {
-            'eval_accuracy': accuracy_score(labels, preds),
-            'eval_f1_macro': f1_score(labels, preds, average='macro', zero_division=0),
-            'eval_precision_macro': precision_score(labels, preds, average='macro', zero_division=0),
-            'eval_recall_macro': recall_score(labels, preds, average='macro', zero_division=0)
-        }
 
 model = Model(trial=True)
 print('TRAINING AUTO MODEL')
-model.train_auto_model(test=False)
+model.train_auto_model(test=True)
 print('EVALUATING AUTO MODEL')
 model.evaluate_model()
 
