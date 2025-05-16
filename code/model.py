@@ -94,7 +94,6 @@ class Model:
         
         # Create Hugging Face Dataset        
         train_dataset = HFDataset.from_pandas(self.X[['context', 'task_a_label']])
-        val_dataset = HFDataset.from_pandas(self.Y[['context']])
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
@@ -104,7 +103,6 @@ class Model:
             return self.tokenizer(example['context'], truncation=True)
 
         tokenized_train = train_dataset.map(tokenize_sample, batched=True)
-        tokenized_val = val_dataset.map(tokenize_sample, batched=True)
 
         if test:
             # For fast testing, select only a few samples
@@ -121,7 +119,7 @@ class Model:
         # Define Training Arguments
         training_args = TrainingArguments(
             output_dir = self.result_path,                # Directory for saving the model
-            eval_strategy = 'steps',              
+            eval_strategy = 'no',              
             eval_steps = self.training_steps,             # After how many steps should be evaluated
             save_steps = self.training_steps,             # After how many steps should the model be saved
             logging_steps = int(self.training_steps*1/5), # After how many steps should be logged
@@ -137,7 +135,6 @@ class Model:
             model=model,
             args=training_args,
             train_dataset=tokenized_train,
-            eval_dataset=tokenized_val,
             data_collator=data_collator
         )
 
