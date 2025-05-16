@@ -64,8 +64,12 @@ class Model:
         }
 
         # Load Data
-        self.data_files = ['trial' if trial else 'training','validation','development']
-        self.data = defaultdict(pd.DataFrame)
+        # X is the input data, Y is the target data
+        self.X = pd.DataFrame()
+        self.Y = pd.DataFrame()
+        target = "validation"
+        self.data_files = ['trial', 'training','development', target]
+        # self.data = defaultdict(pd.DataFrame)
 
 
         for file_name in self.data_files:
@@ -74,23 +78,27 @@ class Model:
             if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
             current_file = pd.read_json(file_path, lines=True)
             
-            # Prepare data for training
-            # change context from list to string
+            # Convert list to string if the column is a list
             current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
             # change task_a_label to be zero-indexed
-            # print current file coulmns
             if 'task_a_label' in current_file.columns:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
-            self.data[file_name] = (current_file)
+            
+            if file_name == target:
+                self.Y = current_file
+            else:
+                self.X = pd.concat([self.X, current_file], ignore_index=True)
+                #self.data[file_name] = current_file
+        
 
 
-    def train_auto_model(self, test = True):
+    def train_auto_model(self, test = False):
         with open(self.parameter_file, 'a') as file:
             file.write("\nmodel = auto\n")
         
         # Create Hugging Face Dataset        
-        train_dataset = HFDataset.from_pandas(self.data['trial'][['context', 'task_a_label']])
-        val_dataset = HFDataset.from_pandas(self.data['validation'][['context']])
+        train_dataset = HFDataset.from_pandas(self.X[['context', 'task_a_label']])
+        val_dataset = HFDataset.from_pandas(self.Y[['context']])
 
         print('Train Dataset:', train_dataset)
         print('Validation Dataset:', val_dataset)
@@ -167,7 +175,7 @@ class Model:
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
         # Development Dataset
-        dev_texts =  self.data['development']['context'].tolist()
+        dev_texts =  self.X['context'].tolist()
         dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
         # Tokenizing
@@ -201,14 +209,14 @@ class Model:
                     predictions.append((pred.item(), prob[pred].item()))
 
         # Save predictions to DataFrame
-        self.data['development']['predicted_label'] = [p[0] for p in predictions]
-        self.data['development']['confidence_score'] = [p[1] for p in predictions]
+        self.X['predicted_label'] = [p[0] for p in predictions]
+        self.X['development']['confidence_score'] = [p[1] for p in predictions]
 
         
         
         # Calculate and save metrics
-        y_true =  self.data['development']['task_a_label']
-        y_pred =  self.data['development']['predicted_label']
+        y_true =  self.X['task_a_label']
+        y_pred =  self.X['predicted_label']
 
         
 
@@ -252,7 +260,7 @@ class Model:
 
 
 
-model = Model(trial=True)
+model = Model(trial=False)
 print('TRAINING AUTO MODEL')
 model.train_auto_model(test=False)
 print('EVALUATING AUTO MODEL')
