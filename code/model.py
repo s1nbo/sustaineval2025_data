@@ -107,7 +107,6 @@ class Model:
         if test:
             # For fast testing, select only a few samples
             tokenized_train = tokenized_train.select(range(5))
-            tokenized_val = tokenized_val.select(range(5))
 
         tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
         tokenized_train.set_format('torch')
