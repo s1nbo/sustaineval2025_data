@@ -18,7 +18,7 @@ class Model:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, trial = False): # check if this hast to be trial or validation or whatever 
+    def __init__(self, trial = False, target = "validation"): # check if this hast to be trial or validation or whatever 
         # Directory for results
         self.result_path = '../result'
         self.model_directory = os.path.join(self.result_path, 'checkpoints')
@@ -67,9 +67,7 @@ class Model:
         # X is the input data, Y is the target data
         self.X = pd.DataFrame()
         self.Y = pd.DataFrame()
-        target = "validation"
         self.data_files = ['trial', 'training','development', target]
-        # self.data = defaultdict(pd.DataFrame)
 
 
         for file_name in self.data_files:
@@ -88,9 +86,7 @@ class Model:
                 self.Y = current_file
             else:
                 self.X = pd.concat([self.X, current_file], ignore_index=True)
-                #self.data[file_name] = current_file
         
-
 
     def train_auto_model(self, test = False):
         with open(self.parameter_file, 'a') as file:
@@ -164,14 +160,12 @@ class Model:
         self.tokenizer.save_pretrained(self.model_directory)
 
 
-    # Loads the model and tokenizer and evaluates the model on the development set
+    # Loads the model and tokenizer and evaluates the model on the given data
     def evaluate_model(self, custom_model = False):
 
-        print('Evaluating Model')
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
 
-        print('Loading Tokenizer')
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
         # Development Dataset
@@ -210,15 +204,11 @@ class Model:
 
         # Save predictions to DataFrame
         self.X['predicted_label'] = [p[0] for p in predictions]
-        self.X['development']['confidence_score'] = [p[1] for p in predictions]
-
-        
+        self.X['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
         y_true =  self.X['task_a_label']
         y_pred =  self.X['predicted_label']
-
-        
 
         # Accuracy 
         acc = accuracy_score(y_true, y_pred)
@@ -257,13 +247,59 @@ class Model:
                 f.write(line + '\n')
 
 
+    def submission(self):
+        model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
+        model.eval()
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
+
+        # Real Data
+        dev_texts =  self.Y['context'].tolist()
+        dev_dataset = HFDataset.from_dict({'context': dev_texts})
+
+        # Tokenizing
+        def tokenize_batch(batch):
+            return self.tokenizer(batch['context'], truncation=True)
+        
+        dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
+
+        # Use GPU or CPU
+        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        model.to(device)
+
+        # DataLoader
+        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+        dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
+
+        # Predictions
+        predictions = []
+
+        with torch.no_grad():
+            for batch in dev_loader:
+                batch = {k: v.to(device) for k, v in batch.items()}
+                outputs = model(**batch)
+                probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                preds = probs.argmax(dim=-1)
+
+                for pred, prob in zip(preds, probs):
+                    predictions.append((pred.item(), prob[pred].item()))
+        # Save predictions to DataFrame
+        self.Y['predicted_label'] = [p[0] for p in predictions]
+
+        # Save the predictions to a CSV file
+        with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
+            f.write('id,label\n')
+            for prediction in self.Y.iterrows():
+                f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
 
 
-model = Model(trial=False)
+
+
+model = Model()
+
 print('TRAINING AUTO MODEL')
-model.train_auto_model(test=False)
+model.train_auto_model()
 print('EVALUATING AUTO MODEL')
 model.evaluate_model()
-
+model.submission()
 
