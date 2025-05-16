@@ -96,9 +96,6 @@ class Model:
         train_dataset = HFDataset.from_pandas(self.X[['context', 'task_a_label']])
         val_dataset = HFDataset.from_pandas(self.Y[['context']])
 
-        print('Train Dataset:', train_dataset)
-        print('Validation Dataset:', val_dataset)
-        
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
         data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
@@ -113,9 +110,6 @@ class Model:
             # For fast testing, select only a few samples
             tokenized_train = tokenized_train.select(range(5))
             tokenized_val = tokenized_val.select(range(5))
-
-        print(tokenized_train)
-        print(tokenized_val)
 
         tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
         tokenized_train.set_format('torch')
@@ -226,7 +220,6 @@ class Model:
         plt.yticks(rotation=0)
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
-        plt.show()
 
 
     def save_current_parameters(self, filepath):
