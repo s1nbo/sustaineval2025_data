@@ -151,6 +151,7 @@ class Model:
 
 
     # Loads the model and tokenizer and evaluates the model on the given data
+    # plotting can be moved to another function/class and evaluation can be returned after training TODO (function can be split up and removed)
     def evaluate_model(self, custom_model = False):
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
