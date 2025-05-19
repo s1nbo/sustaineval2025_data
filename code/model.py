@@ -1,9 +1,7 @@
-from collections import defaultdict
 import os
 import time
 
 import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -12,7 +10,7 @@ from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
-from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score, recall_score, classification_report)
+from sklearn.metrics import (accuracy_score, confusion_matrix)
 
 class Model:
     '''
