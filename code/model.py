@@ -35,19 +35,13 @@ class Model:
             raise FileNotFoundError(f'The directory does not exist: {self.model_directory}')
         
 
-        # Model Configuration
+        # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'bert-base-german-cased'
-        self.tokenizer = None # Will be set during training
-        self.training_steps = 150 # More steps = more time
-        self.relevant_words = 400 # Number of words to select for TF-IDF
-        self.context_target_ratio = 1.1 # scaling of target vs context for evaluation
-
-        # These Paramaters are set by Optuna training
+        self.training_steps = 500 # More steps = more time
         self.epochs = 8             # How many epochs to train
-        self.learning_rate = 2e-5   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.01    # L2-regularization, to prevent overfitting
-        self.warmup_ratio = 0.1     # Warmup ratio for the learning rate scheduler
-        self.save_current_parameters(self.parameter_file)
+        self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
+
         
         # Label Names
         self.label_name = {
@@ -217,24 +211,6 @@ class Model:
         plt.yticks(rotation=0)
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
-
-
-    def save_current_parameters(self, filepath):
-        tracked_params = [
-            "training_steps",
-            "relevant_words",
-            "context_target_ratio",
-            "epochs",
-            "learning_rate",
-            "weight_decay",
-            "warmup_ratio"
-        ]
-
-        with open(filepath, 'w', encoding='utf-8') as f:
-            for param in tracked_params:
-                value = getattr(self, param, None)
-                line = f"{param} = {value}"
-                f.write(line + '\n')
 
 
     def submission(self):

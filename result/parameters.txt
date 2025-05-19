@@ -1,9 +1,2 @@
-training_steps = 150
-relevant_words = 400
-context_target_ratio = 1.1
-epochs = 8
-learning_rate = 2e-05
-weight_decay = 0.01
-warmup_ratio = 0.1
 
 model = auto
