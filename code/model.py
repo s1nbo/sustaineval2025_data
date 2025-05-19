@@ -81,9 +81,6 @@ class Model:
         
 
     def train_auto_model(self, test = False):
-        with open(self.parameter_file, 'a') as file:
-            file.write("\nmodel = auto\n")
-        
         # Create Hugging Face Dataset        
         train_dataset = HFDataset.from_pandas(self.X[['context', 'task_a_label']])
 
@@ -105,7 +102,7 @@ class Model:
 
 
         # Model preparation
-        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels= len(self.label_name))
+        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels = len(self.label_name))
         
         # Define Training Arguments
         training_args = TrainingArguments(
@@ -126,7 +123,7 @@ class Model:
             model=model,
             args=training_args,
             train_dataset=tokenized_train,
-            data_collator=data_collator
+            data_collator=data_collator # What exactly is this?
         )
 
         # Training
@@ -161,7 +158,7 @@ class Model:
         
         dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
 
-        # Use GPU or CPU
+        # Use GPU or CPU, Why here and not above??
         device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
         model.to(device)
 
@@ -187,7 +184,7 @@ class Model:
 
         # Save predictions to DataFrame
         self.X['predicted_label'] = [p[0] for p in predictions]
-        self.X['confidence_score'] = [p[1] for p in predictions]
+        # self.X['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
         y_true =  self.X['task_a_label']
@@ -246,8 +243,8 @@ class Model:
 
                 for pred, prob in zip(preds, probs):
                     predictions.append((pred.item(), prob[pred].item()))
-        # Save predictions to DataFrame
-        self.Y['predicted_label'] = [p[0] for p in predictions]
+        # Save predictions to DataFrame and add one
+        self.Y['predicted_label'] = [p[0] + 1 for p in predictions]
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
@@ -262,8 +259,8 @@ class Model:
 model = Model()
 
 print('TRAINING AUTO MODEL')
-model.train_auto_model()
+#model.train_auto_model()
 print('EVALUATING AUTO MODEL')
-model.evaluate_model()
+#model.evaluate_model()
 model.submission()
 
