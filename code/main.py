@@ -1,8 +1,9 @@
 from model import Model
 
-self = Model()
+model = Model()
 
-self.analyse_data()
-#self.train_custom_model()
-self.train_auto_model()
-self.evaluate_model()
+print('TRAINING AUTO MODEL')
+model.train_auto_model(test=False)
+print('EVALUATING AUTO MODEL')
+model.evaluate_model()
+# model.generate_submission()

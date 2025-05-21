@@ -57,8 +57,9 @@ class Model:
 
         # Load Data
         # X is the input data, Y is the target data
-        self.X = pd.DataFrame()
-        self.Y = pd.DataFrame()
+        self.training = pd.DataFrame()
+        self.validation = pd.DataFrame()
+        self.submission = pd.DataFrame()
         self.data_files = ['trial', 'training','development', target]
 
 
@@ -75,14 +76,17 @@ class Model:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
             
             if file_name == target:
-                self.Y = current_file
+                self.submission = current_file
+            elif file_name == 'development':
+                self.validation = current_file
             else:
-                self.X = pd.concat([self.X, current_file], ignore_index=True)
+                self.training = pd.concat([self.training, current_file], ignore_index=True)
         
 
     def train_auto_model(self, test = False):
         # Create Hugging Face Dataset        
-        train_dataset = HFDataset.from_pandas(self.X[['context', 'task_a_label']])
+        train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
+        vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
@@ -92,10 +96,12 @@ class Model:
             return self.tokenizer(example['context'], truncation=True)
 
         tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+        tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
 
         if test:
             # For fast testing, select only a few samples
             tokenized_train = tokenized_train.select(range(5))
+            tokenized_vali = tokenized_vali.select(range(5))
 
         tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
         tokenized_train.set_format('torch')
@@ -107,7 +113,7 @@ class Model:
         # Define Training Arguments
         training_args = TrainingArguments(
             output_dir = self.result_path,                # Directory for saving the model
-            eval_strategy = 'no',              
+            eval_strategy = 'steps',              
             eval_steps = self.training_steps,             # After how many steps should be evaluated
             save_steps = self.training_steps,             # After how many steps should the model be saved
             logging_steps = int(self.training_steps*1/5), # After how many steps should be logged
@@ -123,6 +129,7 @@ class Model:
             model=model,
             args=training_args,
             train_dataset=tokenized_train,
+            eval_dataset=tokenized_vali,
             data_collator=data_collator # What exactly is this?
         )
 
@@ -149,7 +156,7 @@ class Model:
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
         # Development Dataset
-        dev_texts =  self.X['context'].tolist()
+        dev_texts =  self.validation['context'].tolist()
         dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
         # Tokenizing
@@ -183,12 +190,12 @@ class Model:
                     predictions.append((pred.item(), prob[pred].item()))
 
         # Save predictions to DataFrame
-        self.X['predicted_label'] = [p[0] for p in predictions]
-        # self.X['confidence_score'] = [p[1] for p in predictions]
+        self.validation['predicted_label'] = [p[0] for p in predictions]
+        # self.training['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
-        y_true =  self.X['task_a_label']
-        y_pred =  self.X['predicted_label']
+        y_true =  self.validation['task_a_label']
+        y_pred =  self.validation['predicted_label']
 
         # Accuracy 
         acc = accuracy_score(y_true, y_pred)
@@ -208,13 +215,13 @@ class Model:
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
 
 
-    def submission(self):
+    def generate_submission(self):
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
         # Real Data
-        dev_texts =  self.Y['context'].tolist()
+        dev_texts =  self.submission['context'].tolist()
         dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
         # Tokenizing
@@ -244,23 +251,17 @@ class Model:
                 for pred, prob in zip(preds, probs):
                     predictions.append((pred.item(), prob[pred].item()))
         # Save predictions to DataFrame and add one
-        self.Y['predicted_label'] = [p[0] + 1 for p in predictions]
+        self.submission['predicted_label'] = [p[0] + 1 for p in predictions]
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
             f.write('id,label\n')
-            for prediction in self.Y.iterrows():
+            for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
 
 
 
 
-model = Model()
 
-print('TRAINING AUTO MODEL')
-#model.train_auto_model()
-print('EVALUATING AUTO MODEL')
-#model.evaluate_model()
-model.submission()
 
