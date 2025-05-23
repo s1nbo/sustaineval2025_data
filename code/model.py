@@ -1,5 +1,6 @@
 import os
 import time
+import re
 
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,16 +13,21 @@ from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
 from sklearn.metrics import (accuracy_score, confusion_matrix)
 
+
+
 class Model:
     '''
     Set Paramters and load data
     '''
     def __init__(self, target = "validation"): # check if this hast to be trial or validation or whatever 
-        # Directory for results
-        self.result_path = '../result'
+        # Directory for results, should work on any os (Needs to be tested)
+        
+        self.base_dir = os.path.join(os.path.dirname(__file__), '..')
+
+        self.result_path = os.path.join(self.base_dir, 'result')
         self.model_directory = os.path.join(self.result_path, 'checkpoints')
         self.parameter_file = os.path.join(self.result_path, 'parameters.txt')
-        self.data_path = '../data'
+        self.data_path = os.path.join(self.base_dir, 'data')
         
         # Create and check directories
         os.makedirs(self.result_path, exist_ok=True)
@@ -55,8 +61,7 @@ class Model:
             18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
         }
 
-        # Load Data
-        # X is the input data, Y is the target data
+        # Load Data, we want to combine training and trial for training
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
         self.submission = pd.DataFrame()
@@ -109,7 +114,6 @@ class Model:
 
         # Model preparation
         model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels = len(self.label_name))
-        
         # Define Training Arguments
         training_args = TrainingArguments(
             output_dir = self.result_path,                # Directory for saving the model
@@ -121,7 +125,7 @@ class Model:
             learning_rate = self.learning_rate,   
             weight_decay = self.weight_decay,
             save_total_limit = 1,
-            report_to = 'none'                            # No external tracking services
+            report_to = 'none'
         )
 
         # Trainer Object
@@ -148,7 +152,7 @@ class Model:
 
     # Loads the model and tokenizer and evaluates the model on the given data
     # plotting can be moved to another function/class and evaluation can be returned after training TODO (function can be split up and removed)
-    def evaluate_model(self, custom_model = False):
+    def evaluate_model(self):
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
@@ -180,10 +184,8 @@ class Model:
             for batch in dev_loader:
                 batch = {k: v.to(device) for k, v in batch.items()}
                 outputs = model(**batch)
-                if custom_model:
-                    probs = torch.nn.functional.softmax(outputs['logits'], dim=-1)
-                else:
-                    probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
+                
+                probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
                 preds = probs.argmax(dim=-1)
 
                 for pred, prob in zip(preds, probs):
@@ -220,7 +222,7 @@ class Model:
         model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
 
-        # Real Data
+        # Submission Data
         dev_texts =  self.submission['context'].tolist()
         dev_dataset = HFDataset.from_dict({'context': dev_texts})
 
@@ -258,10 +260,3 @@ class Model:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
-
-
-
-
-
-
-
