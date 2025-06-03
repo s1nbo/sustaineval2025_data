@@ -36,13 +36,13 @@ class TopLevel(Model):
         
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.training_steps = 500 # More steps = more time
-        self.epochs = 8             # How many epochs to train
+        self.training_steps = 2000 # More steps = more time
+        self.epochs = 32             # How many epochs to train
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
 
 
-        self.label_name = [0, 1, 2, 3]
+        self.label_name = ['Strategy', 'Process Management', 'Environment', 'Society']
         # Label Names
         self.top_level_labels = {
              0: 0,  1: 0,
@@ -79,6 +79,9 @@ class TopLevel(Model):
                 self.validation = current_file
             else:
                 self.training = pd.concat([self.training, current_file], ignore_index=True)
+    
+
+
 
 
 if __name__ == '__main__':

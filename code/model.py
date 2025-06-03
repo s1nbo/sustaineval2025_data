@@ -204,13 +204,13 @@ class Model:
 
         # Classification Report
         with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
-            f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(20)]))
+            f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(len(self.label_name))]))
 
         # Confusion Matrix
         cm = confusion_matrix(y_true, y_pred)
 
         plt.figure(figsize=(14,12))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(20)], yticklabels=[self.label_name[i] for i in range(20)])
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=[self.label_name[i] for i in range(len(self.label_name))], yticklabels=[self.label_name[i] for i in range(len(self.label_name))])
         plt.xlabel('Predicted Label')
         plt.ylabel('True Label')
         plt.title('Confusion Matrix')
