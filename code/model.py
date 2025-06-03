@@ -20,8 +20,57 @@ class Model:
     Set Paramters and load data
     '''
     def __init__(self, target = "validation"): # check if this hast to be trial or validation or whatever 
+        self.setup()
+       
+       # Label Names
+        self.label_name = {
+            0: 'Strategic Analysis and Action',   1: 'Materiality',
+            2: 'Objectives',                      3: 'Depth of the Value Chain',
+            4: 'Responsibility',                  5: 'Rules and Processes',
+            6: 'Control',                         7: 'Incentive Systems',
+            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management',
+            10: 'Usage of Natural Resources',     11: 'Resource Management',
+            12: 'Climate-Relevant Emissions',     13: 'Employment Rights',
+            14: 'Equal Opportunities',            15: 'Qualifications',
+            16: 'Human Rights',                   17: 'Corporate Citizenship',
+            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
+        }
+
+        self.load_data(target=target)
+
+
+    def load_data(self, target = None):
+        # Load Data, we want to combine training and trial for training
+        self.training = pd.DataFrame()
+        self.validation = pd.DataFrame()
+        self.submission = pd.DataFrame() if target else None
+        self.data_files = ['trial', 'training','development', target]
+
+        for file_name in self.data_files:
+            # Read data from jsonl files
+            if file_name:
+                file_path = os.path.join(self.data_path, file_name+'_data.jsonl')
+                if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
+                current_file = pd.read_json(file_path, lines=True)
+                
+                # Convert list to string if the column is a list
+                current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+                # change task_a_label to be zero-indexed
+                if 'task_a_label' in current_file.columns:
+                    current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
+                    # for top level class
+                    if not target:
+                        current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
+
+                if file_name == target:
+                    self.submission = current_file
+                elif file_name == 'development':
+                    self.validation = current_file
+                else:
+                    self.training = pd.concat([self.training, current_file], ignore_index=True)
+
+    def setup(self):
         # Directory for results, should work on any os (Needs to be tested)
-        
         self.base_dir = os.path.join(os.path.dirname(__file__), '..')
 
         self.result_path = os.path.join(self.base_dir, 'result')
@@ -37,7 +86,6 @@ class Model:
             raise FileNotFoundError(f'The directory does not exist: {self.result_path}')
         if not os.path.exists(self.model_directory):
             raise FileNotFoundError(f'The directory does not exist: {self.model_directory}')
-        
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
@@ -46,47 +94,7 @@ class Model:
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
 
-        
-        # Label Names
-        self.label_name = {
-            0: 'Strategic Analysis and Action',   1: 'Materiality',
-            2: 'Objectives',                      3: 'Depth of the Value Chain',
-            4: 'Responsibility',                  5: 'Rules and Processes',
-            6: 'Control',                         7: 'Incentive Systems',
-            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management',
-            10: 'Usage of Natural Resources',     11: 'Resource Management',
-            12: 'Climate-Relevant Emissions',     13: 'Employment Rights',
-            14: 'Equal Opportunities',            15: 'Qualifications',
-            16: 'Human Rights',                   17: 'Corporate Citizenship',
-            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
-        }
 
-        # Load Data, we want to combine training and trial for training
-        self.training = pd.DataFrame()
-        self.validation = pd.DataFrame()
-        self.submission = pd.DataFrame()
-        self.data_files = ['trial', 'training','development', target]
-
-
-        for file_name in self.data_files:
-            # Read data from jsonl files
-            file_path = os.path.join(self.data_path, file_name+'_data.jsonl')
-            if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
-            current_file = pd.read_json(file_path, lines=True)
-            
-            # Convert list to string if the column is a list
-            current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
-            # change task_a_label to be zero-indexed
-            if 'task_a_label' in current_file.columns:
-                current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
-            
-            if file_name == target:
-                self.submission = current_file
-            elif file_name == 'development':
-                self.validation = current_file
-            else:
-                self.training = pd.concat([self.training, current_file], ignore_index=True)
-        
 
     def train_auto_model(self, test = False):
         # Create Hugging Face Dataset        
