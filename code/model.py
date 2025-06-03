@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer)
-from sklearn.metrics import (accuracy_score, confusion_matrix)
+from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
 
 
@@ -40,7 +40,7 @@ class Model:
         
 
         # Model Configuration / These Paramaters are set by Optuna training
-        self.pretrained_model_name = 'bert-base-german-cased'
+        self.pretrained_model_name = 'deepset/gbert-base'
         self.training_steps = 500 # More steps = more time
         self.epochs = 8             # How many epochs to train
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
@@ -151,7 +151,6 @@ class Model:
 
 
     # Loads the model and tokenizer and evaluates the model on the given data
-    # plotting can be moved to another function/class and evaluation can be returned after training TODO (function can be split up and removed)
     def evaluate_model(self):
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
@@ -203,6 +202,10 @@ class Model:
         acc = accuracy_score(y_true, y_pred)
         print(f'Accuracy: {acc:.4f}')
 
+        # Classification Report
+        with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
+            f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(20)]))
+
         # Confusion Matrix
         cm = confusion_matrix(y_true, y_pred)
 
@@ -215,6 +218,15 @@ class Model:
         plt.yticks(rotation=0)
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
+
+        # Document Hyperparamters
+        with open(os.path.join(self.result_path, 'parameters.txt'), 'w', encoding='utf-8') as f:
+            f.write(f'Name: {self.pretrained_model_name}\n')
+            f.write(f'Accuracy: {acc:.4f}\n')
+            f.write(f'Training steps: {self.training_steps}\n')
+            f.write(f'Epochs: {self.epochs}\n')
+            f.write(f'Learning rate: {self.learning_rate}\n')
+            f.write(f'Weight decay: {self.weight_decay}\n')
 
 
     def generate_submission(self):
