@@ -24,3 +24,4 @@ class TopLevel(Model):
 
 if __name__ == '__main__':
     t = TopLevel()
+    m = Model()
