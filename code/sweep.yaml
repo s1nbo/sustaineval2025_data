@@ -1,0 +1,15 @@
+method: bayes
+metric:
+  name: eval_accuracy
+  goal: maximize
+parameters:
+  learning_rate:
+    distribution: uniform
+    min: 1e-6
+    max: 5e-4
+  weight_decay:
+    distribution: uniform
+    min: 0.0
+    max: 0.3
+  epochs:
+    values: [2, 4, 6]

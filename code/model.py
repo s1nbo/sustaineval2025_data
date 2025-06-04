@@ -1,12 +1,12 @@
 import os
 import time
-import re
 
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 import torch
+import wandb
 from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
@@ -92,7 +92,6 @@ class Model:
         self.epochs = 8             # How many epochs to train
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
-
 
     def train_auto_model(self, test = False):
         # Create Hugging Face Dataset        
@@ -278,3 +277,72 @@ class Model:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
+
+  
+    def run_sweep_training(self, config):
+        """
+        Run training using hyperparameters from a W&B sweep config.
+        Intended for use with wandb.agent().
+        """
+
+        wandb.init()
+        config = wandb.config
+        if hasattr(config, 'learning_rate'):
+            self.learning_rate = config.learning_rate
+        if hasattr(config, 'weight_decay'):
+            self.weight_decay = config.weight_decay
+        if hasattr(config, 'epochs'):
+            self.epochs = config.epochs
+
+        # Prepare Hugging Face datasets
+        train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
+        vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
+        self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
+
+        def tokenize_sample(example):
+            return self.tokenizer(example['context'], truncation=True)
+
+        tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+        tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
+
+        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+        tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
+        tokenized_train.set_format('torch')
+        tokenized_vali.set_format('torch')
+
+        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+
+        model_for_training = AutoModelForSequenceClassification.from_pretrained(
+            self.pretrained_model_name,
+            num_labels=len(self.label_name)
+        )
+
+        training_args = TrainingArguments(
+            output_dir=self.result_path,
+            eval_strategy="steps",
+            save_strategy="no",
+            learning_rate=self.learning_rate,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            num_train_epochs=self.epochs,
+            weight_decay=self.weight_decay,
+            report_to="wandb",
+            logging_dir="./logs",
+            disable_tqdm=True
+        )
+
+        trainer = Trainer(
+            model=model_for_training,
+            args=training_args,
+            train_dataset=tokenized_train,
+            eval_dataset=tokenized_vali,
+            tokenizer=self.tokenizer,
+            data_collator=data_collator,
+            compute_metrics=lambda p: {
+                "eval_accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
+            }
+        )
+
+        trainer.train()
+        trainer.evaluate()
+        wandb.finish()

@@ -3,3 +3,4 @@ code/test.py
 result/
 code/__pycache__
 r*
+code/wandb
