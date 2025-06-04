@@ -14,12 +14,11 @@ from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
 
-
 class Model:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, target = "validation"): # check if this hast to be trial or validation or whatever 
+    def __init__(self, target = 'validation'): # check if this hast to be trial or validation or whatever 
         self.setup()
        
        # Label Names
@@ -36,38 +35,38 @@ class Model:
             18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
         }
 
-        self.load_data(target=target)
+        self.load_data()
 
 
-    def load_data(self, target = None):
+    def load_data(self, target = 'validation', top_class: bool = False):
         # Load Data, we want to combine training and trial for training
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
-        self.submission = pd.DataFrame() if target else None
+        self.submission = pd.DataFrame() if not top_class else None
         self.data_files = ['trial', 'training','development', target]
+        if top_class: self.data_files = self.data_files[:-1] 
 
         for file_name in self.data_files:
             # Read data from jsonl files
-            if file_name:
-                file_path = os.path.join(self.data_path, file_name+'_data.jsonl')
-                if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
-                current_file = pd.read_json(file_path, lines=True)
-                
-                # Convert list to string if the column is a list
-                current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
-                # change task_a_label to be zero-indexed
-                if 'task_a_label' in current_file.columns:
-                    current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
-                    # for top level class
-                    if not target:
-                        current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
+            file_path = os.path.join(self.data_path, file_name+'_data.jsonl')
+            if not os.path.exists(file_path): raise FileNotFoundError(f'The file does not exist: {file_path}')
+            current_file = pd.read_json(file_path, lines=True)
+            
+            # Convert list to string if the column is a list
+            current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+            # change task_a_label to be zero-indexed
+            if 'task_a_label' in current_file.columns:
+                current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
+                # for top level class
+                if top_class:
+                    current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
 
-                if file_name == target:
-                    self.submission = current_file
-                elif file_name == 'development':
-                    self.validation = current_file
-                else:
-                    self.training = pd.concat([self.training, current_file], ignore_index=True)
+            if file_name == target:
+                self.submission = current_file
+            elif file_name == 'development':
+                self.validation = current_file
+            else:
+                self.training = pd.concat([self.training, current_file], ignore_index=True)
 
     def setup(self):
         # Directory for results, should work on any os (Needs to be tested)
@@ -93,7 +92,6 @@ class Model:
         self.epochs = 8             # How many epochs to train
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
-
 
 
     def train_auto_model(self, test = False):

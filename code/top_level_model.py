@@ -1,6 +1,3 @@
-import os
-import pandas as pd
-
 from model import Model
 
 class TopLevel(Model):
@@ -22,9 +19,8 @@ class TopLevel(Model):
             18: 3, 19: 3
         }
 
-        self.load_data()
+        self.load_data(top_class=True)
 
 
 if __name__ == '__main__':
     t = TopLevel()
-    m = Model()
