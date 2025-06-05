@@ -9,7 +9,7 @@ def sweep_entrypoint():
 if __name__ == "__main__":
     sweep_config = yaml.safe_load(open("sweep.yaml"))
     sweep_id = wandb.sweep(sweep_config, project="sustaineval")
-    wandb.agent(sweep_id, function=sweep_entrypoint, count=20)
+    wandb.agent(sweep_id, function=sweep_entrypoint, count=3)
 
 
 
