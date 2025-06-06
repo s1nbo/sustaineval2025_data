@@ -21,7 +21,8 @@ class TopLevel(Model):
 
         self.load_data(top_class=True)
 
-
+'''
 if __name__ == '__main__':
     t = TopLevel()
     m = Model()
+'''

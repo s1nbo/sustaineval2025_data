@@ -88,10 +88,11 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.training_steps = 500 # More steps = more time
         self.epochs = 8             # How many epochs to train
         self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
+        self.batch_size = 8
+        self.warmup_ratio = 0.1
 
     def train_auto_model(self, test = False):
         # Create Hugging Face Dataset        
@@ -123,15 +124,15 @@ class Model:
         training_args = TrainingArguments(
             output_dir = self.result_path,                # Directory for saving the model
             eval_strategy = 'steps',              
-            eval_steps = self.training_steps,             # After how many steps should be evaluated
-            save_steps = self.training_steps,             # After how many steps should the model be saved
-            logging_steps = int(self.training_steps*1/5), # After how many steps should be logged
             num_train_epochs = self.epochs,               # Number of epochs to train
             learning_rate = self.learning_rate,   
             weight_decay = self.weight_decay,
             save_total_limit = 1,
-            report_to = 'none'
+            report_to = 'none',
+            per_device_train_batch_size=self.batch_size,
+            per_device_eval_batch_size=self.batch_size
         )
+
 
         # Trainer Object
         trainer = Trainer(
@@ -228,7 +229,6 @@ class Model:
         with open(os.path.join(self.result_path, 'parameters.txt'), 'w', encoding='utf-8') as f:
             f.write(f'Name: {self.pretrained_model_name}\n')
             f.write(f'Accuracy: {acc:.4f}\n')
-            f.write(f'Training steps: {self.training_steps}\n')
             f.write(f'Epochs: {self.epochs}\n')
             f.write(f'Learning rate: {self.learning_rate}\n')
             f.write(f'Weight decay: {self.weight_decay}\n')
@@ -293,6 +293,11 @@ class Model:
             self.weight_decay = config.weight_decay
         if hasattr(config, 'epochs'):
             self.epochs = config.epochs
+        if hasattr(config, 'warmup_ratio'):
+            self.warmup_ratio = config.warmup_ratio
+        if hasattr(config, 'per_device_train_batch_size'):
+            self.batch_size = config.per_device_train_batch_size
+
 
         # Prepare Hugging Face datasets
         train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
@@ -322,13 +327,14 @@ class Model:
             eval_strategy="steps",
             save_strategy="no",
             learning_rate=self.learning_rate,
-            per_device_train_batch_size=8,
-            per_device_eval_batch_size=8,
+            per_device_train_batch_size=self.batch_size,
+            per_device_eval_batch_size=self.batch_size,
             num_train_epochs=self.epochs,
             weight_decay=self.weight_decay,
             report_to="wandb",
             logging_dir="./logs",
-            disable_tqdm=True
+            disable_tqdm=True,
+            warmup_ratio=self.warmup_ratio
         )
 
         trainer = Trainer(
@@ -346,3 +352,15 @@ class Model:
         trainer.train()
         trainer.evaluate()
         wandb.finish()
+
+'''
+if __name__ == "__main__":
+    model = Model()
+    model.epochs = 10            
+    model.learning_rate = 0.00001036405347576243   
+    model.weight_decay = 0.26405249759270183
+    model.batch_size = 4
+    model.train_auto_model()
+    model.evaluate_model()
+    model.generate_submission()
+'''
