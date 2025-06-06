@@ -90,11 +90,23 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
+        self.epochs = 8             # How many epochs to train
+        self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
+        self.batch_size = 8
+        self.warmup_ratio = 0.1
+
+
+        '''
+        self.pretrained_model_name = 'deepset/gbert-base'
         self.epochs = 6             # How many epochs to train
         self.learning_rate =  8.296246711509123e-05   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.1653507912146719    # L2-regularization, to prevent overfitting
         self.batch_size = 4
         self.warmup_ratio = 0.049362010462963166
+        
+        
+        '''
 
 
     def train_auto_model(self, test = False):
@@ -166,6 +178,12 @@ class Model:
             self.batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
             self.epochs = trial.suggest_int("epochs", 2, 10)
             self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
+
+
+            wandb.init(
+                project='x',
+                group='x'
+            )
 
             # Tokenization & Dataset prep
             train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
