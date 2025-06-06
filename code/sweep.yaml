@@ -5,11 +5,11 @@ metric:
 parameters:
   learning_rate:
     distribution: uniform
-    min: 1e-6
-    max: 5e-4
+    min: 1e-8
+    max: 5e-5
   weight_decay:
     distribution: uniform
     min: 0.0
     max: 0.3
   epochs:
-    values: [2, 4, 6]
+    values: [6, 8, 10, 12]
