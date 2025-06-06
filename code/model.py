@@ -7,6 +7,7 @@ import seaborn as sns
 
 import torch
 import wandb
+import optuna
 from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
@@ -54,6 +55,7 @@ class Model:
             
             # Convert list to string if the column is a list
             current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
+            current_file['context'] += current_file['target']
             # change task_a_label to be zero-indexed
             if 'task_a_label' in current_file.columns:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
@@ -88,11 +90,12 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.epochs = 8             # How many epochs to train
-        self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
-        self.batch_size = 8
-        self.warmup_ratio = 0.1
+        self.epochs = 6             # How many epochs to train
+        self.learning_rate =  8.296246711509123e-05   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.1653507912146719    # L2-regularization, to prevent overfitting
+        self.batch_size = 4
+        self.warmup_ratio = 0.049362010462963166
+
 
     def train_auto_model(self, test = False):
         # Create Hugging Face Dataset        
@@ -154,6 +157,89 @@ class Model:
         # Save Model
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
+    
+    def optuna_training(self, n_trials=20):
+        def objective(trial):
+            # Suggest hyperparameters
+            self.learning_rate = trial.suggest_float("learning_rate", 1e-6, 1e-4, log=True)
+            self.weight_decay = trial.suggest_float("weight_decay", 0.0, 0.3)
+            self.batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
+            self.epochs = trial.suggest_int("epochs", 2, 10)
+            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
+
+            # Tokenization & Dataset prep
+            train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
+            vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
+            self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
+
+            def tokenize_sample(example):
+                return self.tokenizer(example['context'], truncation=True)
+
+            tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+            tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
+
+            tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+            tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
+            tokenized_train.set_format('torch')
+            tokenized_vali.set_format('torch')
+
+            data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+
+            model_for_training = AutoModelForSequenceClassification.from_pretrained(
+                self.pretrained_model_name,
+                num_labels=len(self.label_name)
+            )
+
+            training_args = TrainingArguments(
+                output_dir=self.result_path,
+                eval_strategy="epoch",
+                save_strategy="no",
+                learning_rate=self.learning_rate,
+                per_device_train_batch_size=self.batch_size,
+                per_device_eval_batch_size=self.batch_size,
+                num_train_epochs=self.epochs,
+                weight_decay=self.weight_decay,
+                report_to="none",
+                logging_dir="./logs",
+                disable_tqdm=True,
+                warmup_ratio=self.warmup_ratio
+            )
+
+            trainer = Trainer(
+                model=model_for_training,
+                args=training_args,
+                train_dataset=tokenized_train,
+                eval_dataset=tokenized_vali,
+                tokenizer=self.tokenizer,
+                data_collator=data_collator,
+                compute_metrics=lambda p: {
+                    "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
+                }
+            )
+
+            trainer.train()
+            eval_result = trainer.evaluate()
+            return eval_result["eval_accuracy"]
+
+        # Run optimization
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=n_trials)
+
+        print("Best trial:")
+        print(study.best_trial)
+
+        # Update model with best parameters
+        best_params = study.best_trial.params
+        self.learning_rate = best_params["learning_rate"]
+        self.weight_decay = best_params["weight_decay"]
+        self.batch_size = best_params["batch_size"]
+        self.epochs = best_params["epochs"]
+        self.warmup_ratio = best_params["warmup_ratio"]
+
+        # Train final model with best hyperparameters
+        print("Training final model with best hyperparameters...")
+        self.train_auto_model()
+        self.evaluate_model()
 
 
     # Loads the model and tokenizer and evaluates the model on the given data
@@ -209,8 +295,8 @@ class Model:
         print(f'Accuracy: {acc:.4f}')
 
         # Classification Report
-        with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
-            f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(len(self.label_name))]))
+        # with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
+            # f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(len(self.label_name))]))
 
         # Confusion Matrix
         cm = confusion_matrix(y_true, y_pred)
@@ -353,14 +439,12 @@ class Model:
         trainer.evaluate()
         wandb.finish()
 
-'''
+
 if __name__ == "__main__":
     model = Model()
-    model.epochs = 10            
-    model.learning_rate = 0.00001036405347576243   
-    model.weight_decay = 0.26405249759270183
-    model.batch_size = 4
     model.train_auto_model()
     model.evaluate_model()
     model.generate_submission()
-'''
+    #model.optuna_training()
+
+
