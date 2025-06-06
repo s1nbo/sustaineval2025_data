@@ -179,10 +179,16 @@ class Model:
             self.epochs = trial.suggest_int("epochs", 2, 10)
             self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
 
-
             wandb.init(
-                project='x',
-                group='x'
+                project="sustaineval",
+                config={
+                    "learning_rate": self.learning_rate,
+                    "weight_decay": self.weight_decay,
+                    "batch_size": self.batch_size,
+                    "epochs": self.epochs,
+                    "warmup_ratio": self.warmup_ratio
+                },
+                reinit=True
             )
 
             # Tokenization & Dataset prep
@@ -237,6 +243,8 @@ class Model:
 
             trainer.train()
             eval_result = trainer.evaluate()
+            wandb.log(eval_result)
+            wandb.finish()
             return eval_result["eval_accuracy"]
 
         # Run optimization
