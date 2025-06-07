@@ -132,7 +132,6 @@ class Model:
         tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
         tokenized_train.set_format('torch')
 
-
         # Model preparation
         model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels = len(self.label_name))
         # Define Training Arguments
@@ -147,7 +146,6 @@ class Model:
             per_device_train_batch_size=self.batch_size,
             per_device_eval_batch_size=self.batch_size
         )
-
 
         # Trainer Object
         trainer = Trainer(
@@ -298,7 +296,7 @@ class Model:
     def run_sweep_training(self, config):
         """
         Run training using hyperparameters from a W&B sweep config.
-        Intended for use with wandb.agent().
+        Intended for use with main.py wand.agent()
         """
 
         wandb.init()
@@ -369,6 +367,9 @@ class Model:
         wandb.finish()
 
     def optuna_training(self, n_trials=20):
+        '''
+        Uses Optuna training instead of WandB sweep training.
+        '''
         def objective(trial):
             # Suggest hyperparameters
             self.learning_rate = trial.suggest_float("learning_rate", 1e-9, 1e-3)
