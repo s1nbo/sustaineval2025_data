@@ -11,7 +11,7 @@ import optuna
 from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
 from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
-                          AutoModelForSequenceClassification, TrainingArguments, Trainer)
+                          AutoModelForSequenceClassification, TrainingArguments, Trainer, EarlyStoppingCallback)
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
 
@@ -170,102 +170,6 @@ class Model:
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
     
-    def optuna_training(self, n_trials=20):
-        def objective(trial):
-            # Suggest hyperparameters
-            self.learning_rate = trial.suggest_float("learning_rate", 1e-6, 1e-4, log=True)
-            self.weight_decay = trial.suggest_float("weight_decay", 0.0, 0.3)
-            self.batch_size = trial.suggest_categorical("batch_size", [4, 8, 16])
-            self.epochs = trial.suggest_int("epochs", 2, 10)
-            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
-
-            wandb.init(
-                project="sustaineval",
-                config={
-                    "learning_rate": self.learning_rate,
-                    "weight_decay": self.weight_decay,
-                    "batch_size": self.batch_size,
-                    "epochs": self.epochs,
-                    "warmup_ratio": self.warmup_ratio
-                },
-                reinit=True
-            )
-
-            # Tokenization & Dataset prep
-            train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
-            vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
-            self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
-
-            def tokenize_sample(example):
-                return self.tokenizer(example['context'], truncation=True)
-
-            tokenized_train = train_dataset.map(tokenize_sample, batched=True)
-            tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
-
-            tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
-            tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
-            tokenized_train.set_format('torch')
-            tokenized_vali.set_format('torch')
-
-            data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-
-            model_for_training = AutoModelForSequenceClassification.from_pretrained(
-                self.pretrained_model_name,
-                num_labels=len(self.label_name)
-            )
-
-            training_args = TrainingArguments(
-                output_dir=self.result_path,
-                eval_strategy="epoch",
-                save_strategy="no",
-                learning_rate=self.learning_rate,
-                per_device_train_batch_size=self.batch_size,
-                per_device_eval_batch_size=self.batch_size,
-                num_train_epochs=self.epochs,
-                weight_decay=self.weight_decay,
-                report_to="none",
-                logging_dir="./logs",
-                disable_tqdm=True,
-                warmup_ratio=self.warmup_ratio
-            )
-
-            trainer = Trainer(
-                model=model_for_training,
-                args=training_args,
-                train_dataset=tokenized_train,
-                eval_dataset=tokenized_vali,
-                tokenizer=self.tokenizer,
-                data_collator=data_collator,
-                compute_metrics=lambda p: {
-                    "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
-                }
-            )
-
-            trainer.train()
-            eval_result = trainer.evaluate()
-            wandb.log(eval_result)
-            wandb.finish()
-            return eval_result["eval_accuracy"]
-
-        # Run optimization
-        study = optuna.create_study(direction="maximize")
-        study.optimize(objective, n_trials=n_trials)
-
-        print("Best trial:")
-        print(study.best_trial)
-
-        # Update model with best parameters
-        best_params = study.best_trial.params
-        self.learning_rate = best_params["learning_rate"]
-        self.weight_decay = best_params["weight_decay"]
-        self.batch_size = best_params["batch_size"]
-        self.epochs = best_params["epochs"]
-        self.warmup_ratio = best_params["warmup_ratio"]
-
-        # Train final model with best hyperparameters
-        print("Training final model with best hyperparameters...")
-        self.train_auto_model()
-        self.evaluate_model()
 
 
     # Loads the model and tokenizer and evaluates the model on the given data
@@ -454,7 +358,6 @@ class Model:
             args=training_args,
             train_dataset=tokenized_train,
             eval_dataset=tokenized_vali,
-            tokenizer=self.tokenizer,
             data_collator=data_collator,
             compute_metrics=lambda p: {
                 "eval_accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
@@ -465,12 +368,113 @@ class Model:
         trainer.evaluate()
         wandb.finish()
 
+    def optuna_training(self, n_trials=20):
+        def objective(trial):
+            # Suggest hyperparameters
+            self.learning_rate = trial.suggest_float("learning_rate", 1e-9, 1e-3)
+            self.weight_decay = trial.suggest_float("weight_decay", 0.0, 0.4)
+            self.batch_size = trial.suggest_categorical("batch_size", [2, 4, 8, 16, 32])
+            self.epochs = trial.suggest_int("epochs", 6, 14)
+            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
 
+            wandb.init(
+                project="sustaineval",
+                config={
+                    "learning_rate": self.learning_rate,
+                    "weight_decay": self.weight_decay,
+                    "batch_size": self.batch_size,
+                    "epochs": self.epochs,
+                    "warmup_ratio": self.warmup_ratio
+                },
+                reinit=True
+            )
+
+            # Tokenization & Dataset prep
+            train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
+            vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
+            self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
+
+            def tokenize_sample(example):
+                return self.tokenizer(example['context'], truncation=True)
+
+            tokenized_train = train_dataset.map(tokenize_sample, batched=True)
+            tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
+
+            tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+            tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
+            tokenized_train.set_format('torch')
+            tokenized_vali.set_format('torch')
+
+            data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
+
+            model_for_training = AutoModelForSequenceClassification.from_pretrained(
+                self.pretrained_model_name,
+                num_labels=len(self.label_name)
+            )
+
+            training_args = TrainingArguments(
+                output_dir=self.result_path,
+                eval_strategy="epoch",
+                save_strategy="epoch",
+                learning_rate=self.learning_rate,
+                per_device_train_batch_size=self.batch_size,
+                per_device_eval_batch_size=self.batch_size,
+                num_train_epochs=self.epochs,
+                weight_decay=self.weight_decay,
+                report_to="wandb",
+                logging_dir="./logs",
+                disable_tqdm=True,
+                warmup_ratio=self.warmup_ratio,
+                load_best_model_at_end=True,  
+                metric_for_best_model="accuracy",
+                greater_is_better=True
+            )
+
+            trainer = Trainer(
+                model=model_for_training,
+                args=training_args,
+                train_dataset=tokenized_train,
+                eval_dataset=tokenized_vali,
+                data_collator=data_collator,
+                compute_metrics=lambda p: {
+                    "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
+                },
+                callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
+            )
+
+            trainer.train()
+            eval_result = trainer.evaluate()
+            wandb.log(eval_result)
+            wandb.finish()
+            return eval_result["eval_accuracy"]
+
+        # Run optimization
+        study = optuna.create_study(direction="maximize")
+        study.optimize(objective, n_trials=n_trials)
+
+        print("Best trial:")
+        print(study.best_trial)
+
+        # Update model with best parameters
+        best_params = study.best_trial.params
+        self.learning_rate = best_params["learning_rate"]
+        self.weight_decay = best_params["weight_decay"]
+        self.batch_size = best_params["batch_size"]
+        self.epochs = best_params["epochs"]
+        self.warmup_ratio = best_params["warmup_ratio"]
+
+        # Train final model with best hyperparameters
+        print("Training final model with best hyperparameters...")
+        self.train_auto_model()
+        self.evaluate_model()
+        self.generate_submission()
+
+'''
 if __name__ == "__main__":
     model = Model()
     model.train_auto_model()
     model.evaluate_model()
     model.generate_submission()
     #model.optuna_training()
-
+'''
 
