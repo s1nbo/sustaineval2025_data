@@ -124,27 +124,34 @@ class Model:
         tokenized_train = train_dataset.map(tokenize_sample, batched=True)
         tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
 
-        if test:
-            # For fast testing, select only a few samples
-            tokenized_train = tokenized_train.select(range(5))
-            tokenized_vali = tokenized_vali.select(range(5))
 
         tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
+        tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
         tokenized_train.set_format('torch')
+        tokenized_vali.set_format('torch')
 
         # Model preparation
-        model = AutoModelForSequenceClassification.from_pretrained(self.pretrained_model_name, num_labels = len(self.label_name))
+        model = AutoModelForSequenceClassification.from_pretrained(
+            self.pretrained_model_name, 
+            num_labels = len(self.label_name)
+        )
+
         # Define Training Arguments
         training_args = TrainingArguments(
-            output_dir = self.result_path,                # Directory for saving the model
-            eval_strategy = 'steps',              
-            num_train_epochs = self.epochs,               # Number of epochs to train
-            learning_rate = self.learning_rate,   
-            weight_decay = self.weight_decay,
-            save_total_limit = 1,
-            report_to = 'none',
+            output_dir = self.result_path,                
+            eval_strategy = 'epochs',
+            save_strategy="epoch",              
+            report_to = 'wandb',
+            logging_dir="./logs",
+            disable_tqdm=True,
+            metric_for_best_model="accuracy",
+            greater_is_better=True,
+            learning_rate=self.learning_rate,
             per_device_train_batch_size=self.batch_size,
-            per_device_eval_batch_size=self.batch_size
+            per_device_eval_batch_size=self.batch_size,
+            num_train_epochs=self.epochs,
+            weight_decay=self.weight_decay,
+            warmup_ratio=self.warmup_ratio
         )
 
         # Trainer Object
@@ -153,7 +160,11 @@ class Model:
             args=training_args,
             train_dataset=tokenized_train,
             eval_dataset=tokenized_vali,
-            data_collator=data_collator # What exactly is this?
+            data_collator=data_collator,
+            compute_metrics=lambda p: {
+                "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
+            },
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
         )
 
         # Training
