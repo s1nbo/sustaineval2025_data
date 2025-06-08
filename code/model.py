@@ -104,12 +104,10 @@ class Model:
         self.weight_decay = 0.1653507912146719    # L2-regularization, to prevent overfitting
         self.batch_size = 4
         self.warmup_ratio = 0.049362010462963166
-        
-        
         '''
 
 
-    def train_auto_model(self, test = False):
+    def train_model(self, test = False):
         # Create Hugging Face Dataset        
         train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
         vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
@@ -304,80 +302,6 @@ class Model:
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
-  
-    def run_sweep_training(self, config):
-        """
-        Run training using hyperparameters from a W&B sweep config.
-        Intended for use with main.py wand.agent()
-        """
-
-        wandb.init()
-        config = wandb.config
-        if hasattr(config, 'learning_rate'):
-            self.learning_rate = config.learning_rate
-        if hasattr(config, 'weight_decay'):
-            self.weight_decay = config.weight_decay
-        if hasattr(config, 'epochs'):
-            self.epochs = config.epochs
-        if hasattr(config, 'warmup_ratio'):
-            self.warmup_ratio = config.warmup_ratio
-        if hasattr(config, 'per_device_train_batch_size'):
-            self.batch_size = config.per_device_train_batch_size
-
-
-        # Prepare Hugging Face datasets
-        train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
-        vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
-        self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
-
-        def tokenize_sample(example):
-            return self.tokenizer(example['context'], truncation=True)
-
-        tokenized_train = train_dataset.map(tokenize_sample, batched=True)
-        tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
-
-        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
-        tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
-        tokenized_train.set_format('torch')
-        tokenized_vali.set_format('torch')
-
-        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-
-        model_for_training = AutoModelForSequenceClassification.from_pretrained(
-            self.pretrained_model_name,
-            num_labels=len(self.label_name)
-        )
-
-        training_args = TrainingArguments(
-            output_dir=self.result_path,
-            eval_strategy="steps",
-            save_strategy="no",
-            learning_rate=self.learning_rate,
-            per_device_train_batch_size=self.batch_size,
-            per_device_eval_batch_size=self.batch_size,
-            num_train_epochs=self.epochs,
-            weight_decay=self.weight_decay,
-            report_to="wandb",
-            logging_dir="./logs",
-            disable_tqdm=True,
-            warmup_ratio=self.warmup_ratio
-        )
-
-        trainer = Trainer(
-            model=model_for_training,
-            args=training_args,
-            train_dataset=tokenized_train,
-            eval_dataset=tokenized_vali,
-            data_collator=data_collator,
-            compute_metrics=lambda p: {
-                "eval_accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
-            }
-        )
-
-        trainer.train()
-        trainer.evaluate()
-        wandb.finish()
-
     def optuna_training(self, n_trials=20):
         '''
         Uses Optuna training instead of WandB sweep training.
@@ -478,14 +402,14 @@ class Model:
 
         # Train final model with best hyperparameters
         print("Training final model with best hyperparameters...")
-        self.train_auto_model()
+        self.train_model()
         self.evaluate_model()
         self.generate_submission()
 
 
 if __name__ == "__main__":
     model = Model()
-    model.train_auto_model()
+    model.train_model()
     model.evaluate_model()
     model.generate_submission()
 
