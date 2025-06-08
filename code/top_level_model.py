@@ -21,8 +21,8 @@ class TopLevel(Model):
 
         self.load_data(top_class=True)
 
-'''
+
 if __name__ == '__main__':
     t = TopLevel()
-    m = Model()
-'''
+    t.train_auto_model()
+    t.evaluate_model()
