@@ -90,11 +90,11 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.epochs = 8             # How many epochs to train
-        self.learning_rate = 4.4e-5   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.08    # L2-regularization, to prevent overfitting
-        self.batch_size = 8
-        self.warmup_ratio = 0.1
+        self.epochs = 10             # How many epochs to train
+        self.learning_rate = 0.00007336182194696851   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.25209871615317314    # L2-regularization, to prevent overfitting
+        self.batch_size = 16
+        self.warmup_ratio = 0.2627025280744802
 
 
         '''
@@ -139,13 +139,14 @@ class Model:
         # Define Training Arguments
         training_args = TrainingArguments(
             output_dir = self.result_path,                
-            eval_strategy = 'epochs',
+            eval_strategy = 'epoch',
             save_strategy="epoch",              
             report_to = 'wandb',
             logging_dir="./logs",
             disable_tqdm=True,
             metric_for_best_model="accuracy",
             greater_is_better=True,
+            load_best_model_at_end=True,
             learning_rate=self.learning_rate,
             per_device_train_batch_size=self.batch_size,
             per_device_eval_batch_size=self.batch_size,
@@ -234,8 +235,8 @@ class Model:
         print(f'Accuracy: {acc:.4f}')
 
         # Classification Report
-        # with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
-            # f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(len(self.label_name))]))
+        with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
+            f.write(classification_report(y_true=y_true, y_pred=y_pred, target_names=[self.label_name[i] for i in range(len(self.label_name))]))
 
         # Confusion Matrix
         cm = confusion_matrix(y_true, y_pred)
@@ -481,12 +482,11 @@ class Model:
         self.evaluate_model()
         self.generate_submission()
 
-'''
+
 if __name__ == "__main__":
     model = Model()
     model.train_auto_model()
     model.evaluate_model()
     model.generate_submission()
-    #model.optuna_training()
-'''
+
 
