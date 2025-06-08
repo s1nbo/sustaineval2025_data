@@ -306,6 +306,15 @@ class Model:
         '''
         def objective(trial):
             # Suggest hyperparameters
+            self.pretrained_model_name = trial.suggest_categorical(
+                "model_name", 
+                [
+                'deepset/gbert-base', 'dbmdz/bert-base-german-cased',
+                'dbmdz/electra-base-german-uncased', 'xlm-roberta-base', 'deepset/gelectra-base',
+                'german-nlp-group/electra-base-german-uncased', 'istilbert-base-german-cased', 
+                'sentence-transformers/distiluse-base-multilingual-cased', 'bert-base-multilingual-cased'
+                ]
+            ) 
             self.learning_rate = trial.suggest_float("learning_rate", 1e-9, 1e-3)
             self.weight_decay = trial.suggest_float("weight_decay", 0.0, 0.4)
             self.batch_size = trial.suggest_categorical("batch_size", [2, 4, 8, 16, 32])
