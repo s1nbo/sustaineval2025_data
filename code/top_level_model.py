@@ -23,6 +23,6 @@ class TopLevel(Model):
 
 
 if __name__ == '__main__':
-    t = TopLevel()
-    t.train_auto_model()
-    t.evaluate_model()
+    model = TopLevel()
+    model.optuna_training(n_trials=100)
+
