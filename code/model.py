@@ -309,10 +309,8 @@ class Model:
             self.pretrained_model_name = trial.suggest_categorical(
                 "model_name", 
                 [
-                'deepset/gbert-base', 'dbmdz/bert-base-german-cased',
-                'dbmdz/electra-base-german-uncased', 'xlm-roberta-base', 'deepset/gelectra-base',
-                'german-nlp-group/electra-base-german-uncased', 'istilbert-base-german-cased', 
-                'sentence-transformers/distiluse-base-multilingual-cased', 'bert-base-multilingual-cased'
+                'deepset/gbert-base', 'bert-base-german-cased', 'deepset/gelectra-base',
+                'xlm-roberta-base', 'german-nlp-group/electra-base-german-uncased', 'bert-base-multilingual-cased'
                 ]
             ) 
             self.learning_rate = trial.suggest_float("learning_rate", 1e-9, 1e-3)
@@ -322,13 +320,14 @@ class Model:
             self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
 
             wandb.init(
-                project="sustaineval",
+                project="sustaineval2",
                 config={
                     "learning_rate": self.learning_rate,
                     "weight_decay": self.weight_decay,
                     "batch_size": self.batch_size,
                     "epochs": self.epochs,
-                    "warmup_ratio": self.warmup_ratio
+                    "warmup_ratio": self.warmup_ratio,
+                    "model_name": self.pretrained_model_name
                 },
                 reinit=True
             )

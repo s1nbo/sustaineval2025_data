@@ -17,4 +17,4 @@ if __name__ == '__main__':
 
 if __name__ == "__main__":
     model = Model()
-    model.optuna_training(n_trials=1000)
+    model.optuna_training(n_trials=100)
