@@ -178,8 +178,6 @@ class Model:
         trainer.save_model(self.model_directory)
         self.tokenizer.save_pretrained(self.model_directory)
     
-
-
     # Loads the model and tokenizer and evaluates the model on the given data
     def evaluate_model(self):
 
