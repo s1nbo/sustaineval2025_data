@@ -300,7 +300,7 @@ class Model:
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
-    def optuna_training(self, n_trials=20):
+    def optuna_training(self, n_trials=20, wandb_project="sustaineval2"):
         '''
         Uses Optuna training instead of WandB sweep training.
         '''
@@ -314,7 +314,7 @@ class Model:
             self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
 
             wandb.init(
-                project="sustaineval2",
+                project=wandb_project,
                 config={
                     "learning_rate": self.learning_rate,
                     "weight_decay": self.weight_decay,

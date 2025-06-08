@@ -24,5 +24,5 @@ class TopLevel(Model):
 
 if __name__ == '__main__':
     model = TopLevel()
-    model.optuna_training(n_trials=100)
+    model.optuna_training(n_trials=100, wandb_project='top_level')
 
