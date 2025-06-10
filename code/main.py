@@ -13,8 +13,15 @@ if __name__ == '__main__':
     sweep_config = yaml.safe_load(open("sweep.yaml"))
     sweep_id = wandb.sweep(sweep_config, project="sustaineval")
     wandb.agent(sweep_id, function=sweep_entrypoint, count=1000)
+
+
+model.optuna_training(n_trials=100)
 '''
 
 if __name__ == "__main__":
     model = Model()
-    model.optuna_training(n_trials=100)
+    # model.train_model()
+    model.evaluate_model()
+    model.generate_submission()
+
+

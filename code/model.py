@@ -407,10 +407,3 @@ class Model:
         self.generate_submission()
 
 
-if __name__ == "__main__":
-    model = Model()
-    model.train_model()
-    model.evaluate_model()
-    model.generate_submission()
-
-
