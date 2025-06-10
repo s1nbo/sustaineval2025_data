@@ -19,7 +19,7 @@ class Model:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, target = 'evaluation'): # check if this hast to be trial or validation or whatever 
+    def __init__(self): # check if this hast to be trial or validation or whatever 
         self.setup()
        
        # Label Names
@@ -39,7 +39,7 @@ class Model:
         self.load_data()
 
 
-    def load_data(self, target = 'validation', top_class: bool = False):
+    def load_data(self, target = 'evaluation', top_class: bool = False):
         # Load Data, we want to combine training and trial for training
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
