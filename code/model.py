@@ -19,7 +19,7 @@ class Model:
     '''
     Set Paramters and load data
     '''
-    def __init__(self, target = 'validation'): # check if this hast to be trial or validation or whatever 
+    def __init__(self, target = 'evaluation'): # check if this hast to be trial or validation or whatever 
         self.setup()
        
        # Label Names
