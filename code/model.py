@@ -179,7 +179,7 @@ class Model:
         self.tokenizer.save_pretrained(self.model_directory)
     
     # Loads the model and tokenizer and evaluates the model on the given data
-    def evaluate_model(self):
+    def evaluate_model(self, ensamble: bool = False):
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
@@ -220,7 +220,7 @@ class Model:
 
         # Save predictions to DataFrame
         self.validation['predicted_label'] = [p[0] for p in predictions]
-        # self.training['confidence_score'] = [p[1] for p in predictions]
+        # self.validation['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
         y_true =  self.validation['task_a_label']
@@ -255,6 +255,8 @@ class Model:
             f.write(f'Learning rate: {self.learning_rate}\n')
             f.write(f'Weight decay: {self.weight_decay}\n')
 
+        if ensamble:
+            return y_pred
 
     def generate_submission(self):
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
@@ -392,6 +394,7 @@ class Model:
         print("Best trial:")
         print(study.best_trial)
 
+        # Not sure if this works
         # Update model with best parameters
         best_params = study.best_trial.params
         self.learning_rate = best_params["learning_rate"]
