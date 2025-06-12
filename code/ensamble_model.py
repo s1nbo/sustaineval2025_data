@@ -14,7 +14,7 @@ class Model_Ensamble(Model):
             raise ValueError('Need odd number of models')
         
         self.models = model_paths
-        print(self.models)
+        print(f'Using Models: {self.models}')
 
     def evaluate_ensamble_models(self):
         """
