@@ -97,15 +97,6 @@ class Model:
         self.warmup_ratio = 0.2627025280744802
 
 
-        '''
-        self.pretrained_model_name = 'deepset/gbert-base'
-        self.epochs = 6             # How many epochs to train
-        self.learning_rate =  8.296246711509123e-05   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.1653507912146719    # L2-regularization, to prevent overfitting
-        self.batch_size = 4
-        self.warmup_ratio = 0.049362010462963166
-        '''
-
 
     def train_model(self, test = False):
         # Create Hugging Face Dataset        
@@ -253,12 +244,14 @@ class Model:
             f.write(f'Accuracy: {acc:.4f}\n')
             f.write(f'Epochs: {self.epochs}\n')
             f.write(f'Learning rate: {self.learning_rate}\n')
+            f.write(f'Batch size: {self.batch_size}\n')
             f.write(f'Weight decay: {self.weight_decay}\n')
+            f.write(f'Warmup ratio: {self.warmup_ratio}\n')
 
         if ensamble:
             return y_pred
 
-    def generate_submission(self):
+    def generate_submission(self, ensamble: bool = False):
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
@@ -293,8 +286,15 @@ class Model:
 
                 for pred, prob in zip(preds, probs):
                     predictions.append((pred.item(), prob[pred].item()))
+
+        
+        
         # Save predictions to DataFrame and add one
         self.submission['predicted_label'] = [p[0] + 1 for p in predictions]
+
+        if ensamble:
+            return self.submission['predicted_label']
+
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
