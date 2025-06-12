@@ -1,26 +1,52 @@
 from model import Model
+import os
+from collections import Counter
+import numpy as np
 
 class Model_Ensamble(Model):
-
-    def __init__(self):
-        pass
-    
     def evaluate_ensamble_models(self, *model_paths):
+        """
+        Parameters:
+            model_paths: Variable amount of directory names inside the results directory.
+            Each directory should contain everything needed for a transformer model.
+        """
         num_models = len(model_paths)
         
         if num_models % 2 == 0:
             raise ValueError('Need odd number of models')
 
-        # pre process model path
-
         self.predictions = []
         for model in model_paths:
-            self.model_directory = model 
+            self.model_directory = os.path.join(self.result_path, model)
             self.predictions.append(self.evaluate_model(ensamble=True))
+        
+        print(self.predictions)
+        print(type(self.predictions[0]))
                                
-
     def ensamble_accuracy(self):
-        pass
+        """
+        Computes the accuracy of the ensemble model using majority voting.
+        Assumes self.predictions is a list of lists (one list per model's predictions).
+        Assumes self.true_labels contains the ground truth labels.
+        """
+        y_true =  self.validation['task_a_label']
+
+        # Transpose to get predictions for each example across all models
+        predictions_per_sample = list(zip(*self.predictions))
+
+        ensemble_preds = []
+        for preds in predictions_per_sample:
+            vote = Counter(preds).most_common(1)[0][0]
+            ensemble_preds.append(vote)
+
+        ensemble_preds = np.array(ensemble_preds)
+        true_labels = np.array(y_true)
+
+        acc = np.mean(ensemble_preds == true_labels)
+        print(f'Accuracy: {acc:.4f}')
+        for i in range(len(ensemble_preds)):
+            print(f'{ensemble_preds[i]} - {true_labels[i]}')
+        
 
     # Maybe use 
     def hypertune_prediciton_weights(self):
@@ -76,4 +102,5 @@ class Model_Ensamble(Model):
 '''
 
 e = Model_Ensamble()
-e.evaluate_model(1, 2, 3)
+e.evaluate_ensamble_models('1','2','3')
+e.ensamble_accuracy()
