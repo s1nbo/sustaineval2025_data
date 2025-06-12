@@ -65,7 +65,7 @@ class Model_Ensamble(Model):
         
         return ensemble_preds
                          
-    # TODO 
+    # TODO Maybe we want to weight models differently
     def hypertune_prediciton_weights(self):
         pass
 

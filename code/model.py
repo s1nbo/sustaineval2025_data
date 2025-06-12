@@ -10,8 +10,8 @@ import wandb
 import optuna
 from torch.utils.data import DataLoader
 from datasets import Dataset as HFDataset
-from transformers import (AutoTokenizer, DataCollatorWithPadding, BertTokenizer,
-                          AutoModelForSequenceClassification, TrainingArguments, Trainer, EarlyStoppingCallback)
+from transformers import (AutoTokenizer, DataCollatorWithPadding,
+                          AutoModelForSequenceClassification, TrainingArguments, Trainer, EarlyStoppingCallback, TrainerCallback)
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
 
@@ -302,18 +302,21 @@ class Model:
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
-    def optuna_training(self, n_trials=20, wandb_project="sustaineval2"):
+    def optuna_training(self, n_trials=20, wandb_project="sustaineval"):
         '''
         Uses Optuna training instead of WandB sweep training.
         '''
         def objective(trial):
-            # Suggest hyperparameters
-            self.pretrained_model_name = trial.suggest_categorical("model_name", ['deepset/gbert-base', 'bert-base-german-cased']) 
-            self.learning_rate = trial.suggest_float("learning_rate", 1e-9, 1e-3)
-            self.weight_decay = trial.suggest_float("weight_decay", 0.0, 0.4)
-            self.batch_size = trial.suggest_categorical("batch_size", [2, 4, 8, 16, 32])
-            self.epochs = trial.suggest_int("epochs", 6, 14)
-            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.0, 0.3)
+            # Suggest hyperparameter ranges
+            # deepset/gbert-base superior model
+            #self.pretrained_model_name = trial.suggest_categorical("model_name", ['deepset/gbert-base', 'bert-base-german-cased'])
+            self.pretrained_model_name = 'deepset/gbert-base'
+            self.learning_rate = trial.suggest_float("learning_rate", 0.00002, 0.00015)
+            self.weight_decay = trial.suggest_float("weight_decay", 0.20, 0.35)
+            #self.batch_size = trial.suggest_categorical("batch_size", [2, 4, 8, 16, 32])
+            self.batch_size = 16
+            self.epochs = trial.suggest_int("epochs", 4, 14)
+            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.22, 0.4)
 
             wandb.init(
                 project=wandb_project,
@@ -323,7 +326,7 @@ class Model:
                     "batch_size": self.batch_size,
                     "epochs": self.epochs,
                     "warmup_ratio": self.warmup_ratio,
-                    "model_name": self.pretrained_model_name
+                    # "model_name": self.pretrained_model_name
                 },
                 reinit=True
             )
@@ -378,7 +381,10 @@ class Model:
                 compute_metrics=lambda p: {
                     "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
                 },
-                callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
+                callbacks=[
+                EarlyStoppingCallback(early_stopping_patience=2),
+                EarlyStoppingWandbLoggerCallback()
+                ]
             )
 
             trainer.train()
@@ -399,14 +405,27 @@ class Model:
         best_params = study.best_trial.params
         self.learning_rate = best_params["learning_rate"]
         self.weight_decay = best_params["weight_decay"]
-        self.batch_size = best_params["batch_size"]
         self.epochs = best_params["epochs"]
         self.warmup_ratio = best_params["warmup_ratio"]
 
-        # Train final model with best hyperparameters
-        print("Training final model with best hyperparameters...")
-        self.train_model()
-        self.evaluate_model()
-        self.generate_submission()
+        with open(os.path.join(self.result_path, 'parameters.txt'), 'w', encoding='utf-8') as f:
+            f.write(f'Name: {self.pretrained_model_name}\n')
+            f.write(f'Epochs: {self.epochs}\n')
+            f.write(f'Learning rate: {self.learning_rate}\n')
+            f.write(f'Batch size: {self.batch_size}\n')
+            f.write(f'Weight decay: {self.weight_decay}\n')
+            f.write(f'Warmup ratio: {self.warmup_ratio}\n')
 
 
+
+class EarlyStoppingWandbLoggerCallback(TrainerCallback):
+    def on_epoch_end(self, args, state, control, **kwargs):
+        # Log the current epoch to wandb after each epoch
+        wandb.log({"epoch": state.epoch})
+
+    def on_train_end(self, args, state, control, **kwargs):
+        # Log the total number of epochs completed at the end of training
+        wandb.log({
+            "epochs_completed": state.epoch,
+            "early_stopped": state.epoch < args.num_train_epochs  # True if stopped early
+        })

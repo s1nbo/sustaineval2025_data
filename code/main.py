@@ -20,8 +20,4 @@ model.optuna_training(n_trials=100)
 
 if __name__ == "__main__":
     model = Model()
-    # model.train_model()
-    model.evaluate_model()
-    model.generate_submission()
-
-
+    model.optuna_training(n_trials=100, wandb_project='sustaineval')
