@@ -12,7 +12,7 @@ de2en = pipeline("translation", model="Helsinki-NLP/opus-mt-de-en")
 en2de = pipeline("translation", model="Helsinki-NLP/opus-mt-en-de")
 
 
-data_files = ['trial', 'training','development']
+data_files = ['trial', 'training']
 
 output = os.path.join(data_path, "generated_data.jsonl")
 
@@ -39,3 +39,5 @@ with open(output, 'w', encoding='utf-8') as outfile:
             }
 
             outfile.write(json.dumps(json_line, ensure_ascii=False) + "\n")
+
+

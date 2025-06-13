@@ -44,7 +44,7 @@ class Model:
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
         self.submission = pd.DataFrame() if not top_class else None
-        self.data_files = ['trial', 'training','development', target]
+        self.data_files = ['trial', 'training','development', 'generated', target]
         if top_class: self.data_files = self.data_files[:-1] 
 
         for file_name in self.data_files:
@@ -101,7 +101,7 @@ class Model:
 
 
 
-    def train_model(self, test = False):
+    def train_model(self):
         # Create Hugging Face Dataset        
         train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
         vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
@@ -432,3 +432,8 @@ class EarlyStoppingWandbLoggerCallback(TrainerCallback):
             "epochs_completed": state.epoch,
             "early_stopped": state.epoch < args.num_train_epochs  # True if stopped early
         })
+
+if __name__ == "__main__":
+    m = Model()
+    m.train_model()
+    m.evaluate_model()
