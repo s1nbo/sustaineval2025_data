@@ -55,7 +55,10 @@ class Model:
             
             # Convert list to string if the column is a list
             current_file['context'] = current_file['context'].apply(lambda x : ' '.join(x) if isinstance(x, list) else x)
-            current_file['context'] += current_file['target']
+            
+            if 'target' in current_file and current_file['target'] is not None:
+                current_file['context'] += current_file['target']
+            
             # change task_a_label to be zero-indexed
             if 'task_a_label' in current_file.columns:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
