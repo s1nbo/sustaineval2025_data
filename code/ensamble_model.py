@@ -87,7 +87,7 @@ class Model_Ensamble(Model):
 
 if __name__ == '__main__':
     e = Model_Ensamble()
-    e.load_models('1', '2', '3')
+    e.load_models('798', '878', '899', '837', '979')
     e.evaluate_ensamble_models()
     e.generate_ensamble_submission()
 
