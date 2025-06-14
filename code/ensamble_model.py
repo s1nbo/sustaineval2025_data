@@ -15,6 +15,7 @@ class Model_Ensamble(Model):
         
         self.models = model_paths
         print(f'Using Models: {self.models}')
+        self.confidence = False
 
     def evaluate_ensamble_models(self):
         """
@@ -64,7 +65,8 @@ class Model_Ensamble(Model):
             confidence_per_sample = list(zip(*self.confidence))
 
         # Confidence is implemented, however it works better without.
-        confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
+        if not self.confidence:
+            confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
         ensemble_confidences = []

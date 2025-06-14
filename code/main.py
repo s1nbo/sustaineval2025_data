@@ -4,17 +4,16 @@ import yaml
 from ensamble_model import Model_Ensamble
 
 
-'''
-model.optuna_training(n_trials=100)
-'''
-
 if __name__ == "__main__":
-    model = Model()
-    model.optuna_training(n_trials=1000)
+    
+    
+    #model = Model()
+    #model.optuna_training(n_trials=1000)
 
-    '''
+    
     e = Model_Ensamble()
-    e.load_models('798', '878', '899', '837', '979')
+    e.confidence = 1
+    e.load_models('899', '878', '837','1999', '798', '1153g', '1872')
     e.evaluate_ensamble_models()
     e.generate_ensamble_submission()
-    '''
+  
