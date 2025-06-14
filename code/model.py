@@ -14,6 +14,8 @@ from transformers import (AutoTokenizer, DataCollatorWithPadding,
                           AutoModelForSequenceClassification, TrainingArguments, Trainer, EarlyStoppingCallback, TrainerCallback)
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
+from loss_function import CustomTrainer
+
 
 class Model:
     '''
