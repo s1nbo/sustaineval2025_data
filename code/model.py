@@ -213,7 +213,7 @@ class Model:
 
         # Save predictions to DataFrame
         self.validation['predicted_label'] = [p[0] for p in predictions]
-        # self.validation['confidence_score'] = [p[1] for p in predictions]
+        self.validation['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
         y_true =  self.validation['task_a_label']
@@ -251,7 +251,7 @@ class Model:
             f.write(f'Warmup ratio: {self.warmup_ratio}\n')
 
         if ensamble:
-            return y_pred
+            return self.validation['predicted_label'], self.validation['confidence_score']
 
     def generate_submission(self, ensamble: bool = False):
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
@@ -293,9 +293,10 @@ class Model:
         
         # Save predictions to DataFrame and add one
         self.submission['predicted_label'] = [p[0] + 1 for p in predictions]
+        self.submission['confidence_score'] = [p[1] for p in predictions]
 
         if ensamble:
-            return self.submission['predicted_label']
+            return self.submission['predicted_label'], self.submission['confidence_score']
 
 
         # Save the predictions to a CSV file
