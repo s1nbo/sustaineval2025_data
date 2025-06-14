@@ -64,7 +64,7 @@ class Model_Ensamble(Model):
             confidence_per_sample = list(zip(*self.confidence))
 
         # Confidence is implemented, however it works better without.
-        # confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
+        confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
         ensemble_confidences = []
@@ -109,7 +109,7 @@ class Model_Ensamble(Model):
 
 if __name__ == '__main__':
     e = Model_Ensamble()
-    e.load_models('798', '878', '979')
+    e.load_models('798', '878', '979', 'checkpoints', '899')
     e.evaluate_ensamble_models()
     e.generate_ensamble_submission()
     
