@@ -1,6 +1,6 @@
 code/test.py
 .DS_Store
-result/
+code/result
 code/__pycache__
 r*
 code/wandb
