@@ -17,7 +17,7 @@ class FinalModel(Model):
         # Load Data, we want to combine training and trial for training
         self.training = pd.DataFrame()
         self.submission = pd.DataFrame() if not top_class else None
-        self.data_files = ['trial', 'training','development', 'generated', target]
+        self.data_files = ['trial', 'training','development', target]
         if top_class: self.data_files = self.data_files[:-1] 
 
         for file_name in self.data_files:
