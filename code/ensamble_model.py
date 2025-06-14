@@ -3,7 +3,7 @@ import seaborn as sns
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from model import Model
 import os
-from collections import Counter
+from collections import defaultdict
 
 class Model_Ensamble(Model):
     
@@ -23,12 +23,15 @@ class Model_Ensamble(Model):
             Each directory should contain everything needed for a transformer model.
         """
         self.predictions = []
+        self.confidence = []
         for model in self.models:
             self.model_directory = os.path.join(self.result_path, model)
-            self.predictions.append(self.evaluate_model(ensamble=True))
+            pred, conf = self.evaluate_model(ensamble=True)
+            self.predictions.append(pred)
+            self.confidence.append(conf)
 
         y_true =  self.validation['task_a_label']
-        ensemble_preds = self.ensamble_prediction(submission=False)
+        ensemble_preds, _ = self.ensamble_prediction(submission=False)
         print(f'Accuracy: {accuracy_score(y_true, ensemble_preds):.4f}')
 
         # Classification Report
@@ -55,15 +58,32 @@ class Model_Ensamble(Model):
         # Transpose to get predictions for each example across all models
         if submission:
             predictions_per_sample = list(zip(*self.ensamble_submission))
+            confidence_per_sample = list(zip(*self.confidence_submission))
         else:
             predictions_per_sample = list(zip(*self.predictions))
+            confidence_per_sample = list(zip(*self.confidence))
+
+        # Confidence is implemented, however it works better without.
+        # confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
-        for preds in predictions_per_sample:
-            vote = Counter(preds).most_common(1)[0][0]
-            ensemble_preds.append(vote)
+        ensemble_confidences = []
         
-        return ensemble_preds
+        for preds, confs in zip(predictions_per_sample, confidence_per_sample):
+            weighted_votes = defaultdict(float)
+
+            # Accumulate weighted votes
+            for pred, conf in zip(preds, confs):
+                weighted_votes[pred] += conf
+
+            # Select label with highest total weight (confidence sum)
+            majority_label = max(weighted_votes.items(), key=lambda x: x[1])[0]
+            total_weight = weighted_votes[majority_label]
+
+            ensemble_preds.append(majority_label)
+            ensemble_confidences.append(total_weight)
+
+        return ensemble_preds, ensemble_confidences
                          
     # TODO Maybe we want to weight models differently
     def hypertune_prediciton_weights(self):
@@ -71,11 +91,14 @@ class Model_Ensamble(Model):
 
     def generate_ensamble_submission(self):
         self.ensamble_submission = []
+        self.confidence_submission = []
         for model in self.models:
             self.model_directory = os.path.join(self.result_path, model)
-            self.ensamble_submission.append(self.generate_submission(ensamble=True))
+            pred, conf = self.generate_submission(ensamble=True)
+            self.ensamble_submission.append(pred)
+            self.confidence_submission.append(conf)
 
-        self.submission['predicted_label'] = self.ensamble_prediction(submission=True)
+        self.submission['predicted_label'], _ = self.ensamble_prediction(submission=True)
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
@@ -84,12 +107,13 @@ class Model_Ensamble(Model):
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
 
-
 if __name__ == '__main__':
     e = Model_Ensamble()
-    e.load_models('798', '878', '899', '837', '979')
+    e.load_models('798', '878', '979')
     e.evaluate_ensamble_models()
     e.generate_ensamble_submission()
+    
+    # '899', '837' remove these, they are dragging the ensamble down around 0.004 (.4%)
 
 
 
