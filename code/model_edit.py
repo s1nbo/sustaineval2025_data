@@ -91,9 +91,10 @@ class Model:
 
     def setup(self):
         # Directory for results, should work on any os (Needs to be tested)
-        self.base_dir = os.path.dirname(__file__)
+        self.base_dir = os.path.join(os.path.dirname(__file__), '..')
+        self.result_dir = os.path.join(os.path.dirname(__file__), '.')
 
-        self.result_path = os.path.join(self.base_dir, 'result')
+        self.result_path = os.path.join(self.result_dir, 'result')
         self.model_directory = os.path.join(self.result_path, 'checkpoints')
         self.parameter_file = os.path.join(self.result_path, 'parameters.txt')
         self.data_path = os.path.join(self.base_dir, 'data')
@@ -143,6 +144,8 @@ class Model:
             labels=len(self.label_name),
             super_labels=len(self.super_label_name)
         )
+
+        wandb.init(project='top_level_sirak')
 
         # Define Training Arguments
         training_args = TrainingArguments(
