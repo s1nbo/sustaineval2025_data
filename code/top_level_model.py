@@ -21,34 +21,39 @@ class SuperLabel(Model):
 
         self.load_data(top_class=True)
     
-    def sort_data(self, super_label):
-        # split the data based on the task_a_label in self.submission['predicted_label']
-        # Only for submission needed, can be split correctly for the other classes
-        return self.submission[self.submission['predicted_label'] == super_label]
-
-
-
 
 
 class SingleLabel(SuperLabel):
-    def __init__(self, super_class: int):
+    def __init__(self, super_label: int):
         SuperLabel.__init__(self)
-        self.super_class = super_class
-
-
-    def load_data(self):
-        self.submission = self.sort_data(super_label=self.super_class)
-
-    def generate_submission(self):
+        self.super_label = super_label
+    
+    def load_model(self, mode_path):
+        # load correct model
         pass
+    
+    def split_data(self, self_class):
+        # update the data to only get that data of correct super_class
 
-    # Maybe the rest can be used from Parent class?
+        
+        self.submission[self.submission['predicted_label'] == self.super_class]
+    
+    
+    # for generate submission we can use ensamble = True and only take first value
+
+        
+    
+
+
+    
+
+def generate_super_class_submission(l1: SingleLabel, l2: SingleLabel, l3: SingleLabel, l4: SingleLabel):
+    
+    all_predictions = l1.submission + l2.submission + l3.submission + l4.submission
+
+
 
 
 
 if __name__ == '__main__':
     model = SuperLabel()
-    model.train_model()
-    model.evaluate_model()
-    a, _, _, _ = model.sort_data()
-    print(a)
