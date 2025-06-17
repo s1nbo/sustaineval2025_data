@@ -21,21 +21,23 @@ class SuperLabel(Model):
 
         self.load_data(top_class=True)
     
-    def sort_data(self):
-        # split the data based on the task_a_label in self.validation['task_a_label']
-        l1, l2, l3, l4 = 0,0,0,0
-        return l1, l2, l3, l4 
+    def sort_data(self, super_label):
+        # split the data based on the task_a_label in self.submission['predicted_label']
+        # Only for submission needed, can be split correctly for the other classes
+        return self.submission[self.submission['predicted_label'] == super_label]
 
 
 
 
-class SingleLabel(Model):
-    def __init__(self, super_label: int, data):
-        pass
+
+class SingleLabel(SuperLabel):
+    def __init__(self, super_class: int):
+        SuperLabel.__init__(self)
+        self.super_class = super_class
+
 
     def load_data(self):
-        # load only the data by given by the super model
-        pass
+        self.submission = self.sort_data(super_label=self.super_class)
 
     def generate_submission(self):
         pass
@@ -48,3 +50,5 @@ if __name__ == '__main__':
     model = SuperLabel()
     model.train_model()
     model.evaluate_model()
+    a, _, _, _ = model.sort_data()
+    print(a)
