@@ -1,5 +1,6 @@
 from model import Model
-
+import os
+import pandas as pd
 class SuperLabel(Model):
     def __init__(self):
         self.setup()
@@ -22,35 +23,70 @@ class SuperLabel(Model):
         self.load_data(top_class=True)
     
 
-
-class SingleLabel(SuperLabel):
+class SingleLabel(Model):
     def __init__(self, super_label: int):
         SuperLabel.__init__(self)
         self.super_label = super_label
-    
-    def load_model(self, mode_path):
-        # load correct model
-        pass
-    
-    def split_data(self, self_class):
-        # update the data to only get that data of correct super_class
 
+        # Update labels to only get the necessary ones
+        if super_label == 0:
+            self.label_name = {
+            0: 'Strategic Analysis and Action',   1: 'Materiality',
+            2: 'Objectives',                      3: 'Depth of the Value Chain'
+            }
+        elif super_label == 1:
+            self.label_name = {
+            4: 'Responsibility',                  5: 'Rules and Processes',
+            6: 'Control',                         7: 'Incentive Systems',
+            8: 'Stakeholder Engagement',          9: 'Innovation and Product Management'
+            }    
+        elif super_label == 2:
+            self.label_name = {
+            10: 'Usage of Natural Resources',     11: 'Resource Management',
+            12: 'Climate-Relevant Emissions'
+            }
+        else:
+            self.label_name = {
+            13: 'Employment Rights',
+            14: 'Equal Opportunities',            15: 'Qualifications',
+            16: 'Human Rights',                   17: 'Corporate Citizenship',
+            18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
+            }
         
-        self.submission[self.submission['predicted_label'] == self.super_class]
+        super_label_map = {
+            0: [0, 1, 2, 3],
+            1: [4, 5, 6, 7, 8, 9],
+            2: [10, 11, 12],
+            3: [13, 14, 15, 16, 17, 18, 19]
+        } 
+
+        valid_labels = super_label_map[self.super_label]
+        self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
+        self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
+
+    def split_data(self, submission):
+            self.submission =  submission[submission['predicted_label'] == self.super_label]
+        
+    # Train can be taken from Parent
     
-    
+    def eval_single_model(self, model_path):
+        self.model_directory = os.path.join(self.result_path, model_path)
+        pred, conf = self.evaluate_model(ensamble=True)
+        return pred
+        
     # for generate submission we can use ensamble = True and only take first value
 
+    # optuna_training can also be taken from Parent 
         
+
+def generate_super_class_submission(l1_submission, l2_submission, l3_submission, l4_submission, result_path):
     
-
-
+    all_predictions = pd.concat([l1_submission, l2_submission, l3_submission, l4_submission], ignore_index=True)
     
-
-def generate_super_class_submission(l1: SingleLabel, l2: SingleLabel, l3: SingleLabel, l4: SingleLabel):
-    
-    all_predictions = l1.submission + l2.submission + l3.submission + l4.submission
-
+    with open(os.path.join(result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
+        f.write('id,label\n')
+        for _, prediction in all_predictions.iterrows():
+            f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
 
 
