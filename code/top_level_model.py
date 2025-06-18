@@ -69,6 +69,7 @@ class SingleLabel(Model):
         
     # Train can be taken from Parent
     
+    # Do I really need this?
     def eval_single_model(self, model_path):
         self.model_directory = os.path.join(self.result_path, model_path)
         pred, conf = self.evaluate_model(ensamble=True)
@@ -79,9 +80,11 @@ class SingleLabel(Model):
     # optuna_training can also be taken from Parent 
         
 
-def generate_super_class_submission(l1_submission, l2_submission, l3_submission, l4_submission, result_path):
+def generate_super_class_submission(*submissions, result_path):
+    if len(submissions) != 4:
+        raise ValueError(f"Expected 4 submissions, but got {len(submissions)}.")
     
-    all_predictions = pd.concat([l1_submission, l2_submission, l3_submission, l4_submission], ignore_index=True)
+    all_predictions = pd.concat(submissions, ignore_index=True)
     
     with open(os.path.join(result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
         f.write('id,label\n')
@@ -91,10 +94,23 @@ def generate_super_class_submission(l1_submission, l2_submission, l3_submission,
 
 
 if __name__ == '__main__':
-    model = SingleLabel(0)
-    print(model.training)
-    print(model.validation)
-    model.train_model()
-    model.evaluate_model()
+    # Train and evaluate the super model
+    super_model = SuperLabel()
+    super_model.train_model()
+    super_model.evaluate_model()
+    super_model.generate_submission(ensamble=True)
 
+    # Store the submission results for each subclass
+    subclass_submissions = []
 
+    # Loop through all super class indices (0–3)
+    for super_class in range(4):
+        model = SingleLabel(super_class)
+        model.train_model()
+        model.evaluate_model()
+        model.split_data(super_model.submission)
+        submission, _ = model.generate_submission(ensamble=True)
+        subclass_submissions.append(submission)
+
+    # Generate final combined submission
+    generate_super_class_submission(*subclass_submissions, result_path=model.result_path)
