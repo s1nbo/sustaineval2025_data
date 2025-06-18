@@ -90,6 +90,11 @@ def generate_super_class_submission(l1_submission, l2_submission, l3_submission,
 
 
 
-
 if __name__ == '__main__':
-    model = SuperLabel()
+    model = SingleLabel(0)
+    print(model.training)
+    print(model.validation)
+    model.train_model()
+    model.evaluate_model()
+
+
