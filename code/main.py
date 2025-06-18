@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     
     e = Model_Ensamble()
-    e.confidence = 1
+    e.confidence = 1 # Does This change something?
     e.load_models('899', '878', '837','1999', '798', '1153g', '1872')
     e.evaluate_ensamble_models()
     e.generate_ensamble_submission()

@@ -1,6 +1,11 @@
 from model import Model
 import os
 import pandas as pd
+
+'''
+Without tuning the Models I've reached 0.64 Accuracy (0.81*0.79).
+'''
+
 class SuperLabel(Model):
     def __init__(self):
         self.setup()
@@ -23,59 +28,10 @@ class SuperLabel(Model):
         self.load_data(top_class=True)
     
 
-    def generate_submission(self, ensamble: bool = False):
-        model = AutoModel_manual(
-            pretrained=self.pretrained_model_name,
-            labels=len(self.label_name),
-            super_labels=len(self.super_label_name)
-        )
-        model.load_state_dict(torch.load(os.path.join(self.model_directory, "model.pt")))
-        model.eval()
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
-
-        # Submission Data
-        dev_texts =  self.submission['context'].tolist()
-        dev_dataset = HFDataset.from_dict({'context': dev_texts})
-
-        # Tokenizing
-        def tokenize_batch(batch):
-            return self.tokenizer(batch['context'], truncation=True)
-        
-        dev_dataset = dev_dataset.map(tokenize_batch, batched=True, remove_columns=['context'])
-
-        # Use GPU or CPU
-        device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-        model.to(device)
-
-        # DataLoader
-        data_collator = DataCollatorWithPadding(tokenizer=self.tokenizer)
-        dev_loader = DataLoader(dev_dataset, batch_size=16, collate_fn=data_collator)
-
-        # Predictions
-        predictions = []
-
-        with torch.no_grad():
-            for batch in dev_loader:
-                batch = {k: v.to(device) for k, v in batch.items()}
-                outputs = model(**batch)
-                probs = torch.nn.functional.softmax(outputs.logits, dim=-1)
-                preds = probs.argmax(dim=-1)
-
-                for pred, prob in zip(preds, probs):
-                    predictions.append((pred.item(), prob[pred].item()))
-
-        
-        
-        # Save predictions to DataFrame and add one
-        self.submission['predicted_label'] = [p[0] + 1 for p in predictions]
-
-        if ensamble:
-                return self.submission['predicted_label']
-    
 
 class SingleLabel(Model):
     def __init__(self, super_label: int):
-        SuperLabel.__init__(self)
+        Model.__init__(self)
         self.super_label = super_label
 
         # Update labels to only get the necessary ones
@@ -114,6 +70,36 @@ class SingleLabel(Model):
         self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
         self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
 
+        if self.super_label == 1: 
+            self.training['task_a_label'] = self.training['task_a_label'] - 4
+            self.validation['task_a_label'] = self.validation['task_a_label'] - 4
+
+        if self.super_label == 2: 
+            self.training['task_a_label'] = self.training['task_a_label'] - 10
+            self.validation['task_a_label'] = self.validation['task_a_label'] - 10
+        
+        if self.super_label == 3: 
+            self.training['task_a_label'] = self.training['task_a_label'] - 13
+            self.validation['task_a_label'] = self.validation['task_a_label'] - 13
+        
+        
+
+    def recover_original_label(self):
+        if self.super_label == 1: 
+            self.training['task_a_label'] = self.training['task_a_label'] + 4
+            self.validation['task_a_label'] = self.validation['task_a_label'] + 4
+            # self.validation['predicted_label'] = self.validation['predicted_label'] + 4 TODO
+
+        if self.super_label == 2: 
+            self.training['task_a_label'] = self.training['task_a_label'] + 10
+            self.validation['task_a_label'] = self.validation['task_a_label'] + 10
+            # self.validation['predicted_label'] = self.validation['predicted_label'] + 10 TODO
+        
+        if self.super_label == 3: 
+            self.training['task_a_label'] = self.training['task_a_label'] + 13
+            self.validation['task_a_label'] = self.validation['task_a_label'] + 13
+            # self.validation['predicted_label'] = self.validation['predicted_label'] + 13 TODO
+
     def split_data(self, submission):
             self.submission =  submission[submission['predicted_label'] == self.super_label]
         
@@ -144,25 +130,37 @@ def generate_super_class_submission(*submissions, result_path):
 
 
 if __name__ == '__main__':
+    
+    # Tuning
+    # SuperLabel: 0.81
     # Train and evaluate the super model
-    super_model = SuperLabel()
-    super_model.train_model()
-    super_model.evaluate_model()
+    #super_model = SuperLabel()
+    #super_model.train_model()
+    #super_model.evaluate_model()
     #super_model.generate_submission(ensamble=True) TODO
 
     # Store the submission results for each subclass
     subclass_submissions = []
 
-    # Loop through all super class indices (0–3)
-    for super_class in range(4):
-        model = SingleLabel(super_class)
-        model.train_model()
-        model.evaluate_model()
-        
-        #TODO 
-        #model.split_data(super_model.submission)
-        #submission, _ = model.generate_submission(ensamble=True)
-        #subclass_submissions.append(submission)
 
-    # Generate final combined submission
+    # Without Tuning
+    # Label0: 0.76
+    # Label1: 0.80
+    # Label2: 0.71
+    # Label3: 0.90
+    # Average: 0.7925
+    for super_class in range(1, 4):
+        model = SingleLabel(super_class)
+        print(model.training)
+        model.train_model()
+        # model.evaluate_model()
+        model.recover_original_label()
+        
+        # TODO 
+        # model.split_data(super_model.submission)
+        # submission, _ = model.generate_submission(ensamble=True)
+        # subclass_submissions.append(submission)
+
+    
+    #Generate final combined submission
     #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)

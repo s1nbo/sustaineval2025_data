@@ -16,7 +16,7 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report)
 
 
-class Model:
+class ModelEdit:
     '''
     Set Paramters and load data
     '''
@@ -485,6 +485,6 @@ class EarlyStoppingWandbLoggerCallback(TrainerCallback):
         })
 
 if __name__ == "__main__":
-    m = Model()
+    m = ModelEdit()
     m.train_model()
     m.evaluate_model()
