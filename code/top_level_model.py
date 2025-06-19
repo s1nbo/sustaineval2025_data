@@ -26,6 +26,16 @@ class SuperLabel(Model):
         }
 
         self.load_data(top_class=True)
+        
+    
+    def split_data(self, super_label):
+        # Splits data based on prediction
+        self.validation = self.validation[self.validation['predicted_label'] == super_label]
+        self.submission = self.submission[self.submission['predicted_label'] == super_label]
+
+        return self.validation, self.submission
+    
+    # Use self.generate_submission(ensamble=True) to get submission data
     
 
 
@@ -149,10 +159,9 @@ if __name__ == '__main__':
     # Label2: 0.71
     # Label3: 0.90
     # Average: 0.7925
-    for super_class in range(1, 4):
+    for super_class in range(4):
         model = SingleLabel(super_class)
-        print(model.training)
-        model.train_model()
+        #model.train_model()
         # model.evaluate_model()
         model.recover_original_label()
         
@@ -164,3 +173,7 @@ if __name__ == '__main__':
     
     #Generate final combined submission
     #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)
+
+
+
+    #

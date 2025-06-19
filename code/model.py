@@ -42,9 +42,8 @@ class Model:
         # Load Data, we want to combine training and trial for training
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
-        self.submission = pd.DataFrame() if not top_class else None
-        self.data_files = ['trial', 'training','development',  target]
-        if top_class: self.data_files = self.data_files[:-1] 
+        self.submission = pd.DataFrame()
+        self.data_files = ['trial', 'training','development',  target] 
 
         for file_name in self.data_files:
             # Read data from jsonl files
@@ -62,8 +61,8 @@ class Model:
             if 'task_a_label' in current_file.columns:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
                 # for top level class
-                if top_class:
-                    current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
+                if top_class and not(file_name == target): # TODO does this work?
+                    current_file['super_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
 
             if file_name == target:
                 self.submission = current_file
@@ -101,10 +100,12 @@ class Model:
 
 
 
-    def train_model(self):
+    def train_model(self, super_label: bool = False):
+        target = 'task_a_label' if not super_label else 'super_label'
+
         # Create Hugging Face Dataset        
-        train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
-        vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
+        train_dataset = HFDataset.from_pandas(self.training[['context', target]])
+        vali_dataset = HFDataset.from_pandas(self.validation[['context', target]])
 
         # Tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
@@ -117,8 +118,8 @@ class Model:
         tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
 
 
-        tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
-        tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
+        tokenized_train = tokenized_train.rename_column(target, 'labels')
+        tokenized_vali = tokenized_vali.rename_column(target, 'labels')
         tokenized_train.set_format('torch')
         tokenized_vali.set_format('torch')
 
@@ -172,7 +173,8 @@ class Model:
         self.tokenizer.save_pretrained(self.model_directory)
     
     # Loads the model and tokenizer and evaluates the model on the given data
-    def evaluate_model(self, ensamble: bool = False):
+    def evaluate_model(self, ensamble: bool = False,  super_label: bool = False):
+        target = 'task_a_label' if not super_label else 'super_label'
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
@@ -216,7 +218,7 @@ class Model:
         self.validation['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
-        y_true =  self.validation['task_a_label']
+        y_true =  self.validation[target]
         y_pred =  self.validation['predicted_label']
 
         # Accuracy 
@@ -305,10 +307,12 @@ class Model:
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
-    def optuna_training(self, n_trials=20, wandb_project="sustaineval"):
+    def optuna_training(self, n_trials=20, wandb_project="sustaineval", super_label: bool = False):
         '''
         Uses Optuna training instead of WandB sweep training.
         '''
+        target = 'task_a_label' if not super_label else 'super_label'
+
         def objective(trial):
             # Suggest hyperparameter ranges
             # deepset/gbert-base superior model
@@ -335,8 +339,8 @@ class Model:
             )
 
             # Tokenization & Dataset prep
-            train_dataset = HFDataset.from_pandas(self.training[['context', 'task_a_label']])
-            vali_dataset = HFDataset.from_pandas(self.validation[['context', 'task_a_label']])
+            train_dataset = HFDataset.from_pandas(self.training[['context', target]])
+            vali_dataset = HFDataset.from_pandas(self.validation[['context', target]])
             self.tokenizer = AutoTokenizer.from_pretrained(self.pretrained_model_name, use_fast=False)
 
             def tokenize_sample(example):
@@ -345,8 +349,8 @@ class Model:
             tokenized_train = train_dataset.map(tokenize_sample, batched=True)
             tokenized_vali = vali_dataset.map(tokenize_sample, batched=True)
 
-            tokenized_train = tokenized_train.rename_column('task_a_label', 'labels')
-            tokenized_vali = tokenized_vali.rename_column('task_a_label', 'labels')
+            tokenized_train = tokenized_train.rename_column(target, 'labels')
+            tokenized_vali = tokenized_vali.rename_column(target, 'labels')
             tokenized_train.set_format('torch')
             tokenized_vali.set_format('torch')
 
