@@ -170,8 +170,7 @@ if __name__ == '__main__':
         # submission, _ = model.generate_submission(ensamble=True)
         # subclass_submissions.append(submission)
     '''
+    '''
     
     #Generate final combined submission
     #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)
-
-    '''
