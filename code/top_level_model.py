@@ -144,9 +144,9 @@ if __name__ == '__main__':
     # Tuning
     # SuperLabel: 0.81
     # Train and evaluate the super model
-    #super_model = SuperLabel()
-    #super_model.train_model()
-    #super_model.evaluate_model()
+    super_model = SuperLabel()
+    super_model.train_model()
+    super_model.evaluate_model()
     #super_model.generate_submission(ensamble=True) TODO
 
     # Store the submission results for each subclass
@@ -169,7 +169,7 @@ if __name__ == '__main__':
         # model.split_data(super_model.submission)
         # submission, _ = model.generate_submission(ensamble=True)
         # subclass_submissions.append(submission)
-
+    '''
     
     #Generate final combined submission
     #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)

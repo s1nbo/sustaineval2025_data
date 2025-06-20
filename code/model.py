@@ -93,10 +93,10 @@ class Model:
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
         self.epochs = 9             # How many epochs to train
-        self.learning_rate = 0.0000408619934221631   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.20540288610252297   # L2-regularization, to prevent overfitting
+        self.learning_rate = 0.0000552097081360975   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.2565944748855663   # L2-regularization, to prevent overfitting
         self.batch_size = 16
-        self.warmup_ratio = 0.319626477450613
+        self.warmup_ratio = 0.2831286306175864
 
 
 
