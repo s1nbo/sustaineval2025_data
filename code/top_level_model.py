@@ -28,17 +28,15 @@ class SuperLabel(Model):
         self.load_data(top_class=True)
         
     
-    def split_data(self, super_label):
+    def split_data(self, super_label:int):
         # Splits data based on prediction
         self.validation = self.validation[self.validation['predicted_label'] == super_label]
-        self.submission = self.submission[self.submission['predicted_label'] == super_label]
+        #self.submission = self.submission[self.submission['predicted_label'] == super_label]
 
         return self.validation, self.submission
     
     # Use self.generate_submission(ensamble=True) to get submission data
     
-
-
 class SingleLabel(Model):
     def __init__(self, super_label: int):
         Model.__init__(self)
@@ -69,17 +67,18 @@ class SingleLabel(Model):
             18: 'Political Influence',            19: 'Conduct that Complies with the Law and Policy'
             }
         
-        super_label_map = {
+        self.super_label_map = {
             0: [0, 1, 2, 3],
             1: [4, 5, 6, 7, 8, 9],
             2: [10, 11, 12],
             3: [13, 14, 15, 16, 17, 18, 19]
         } 
 
-        valid_labels = super_label_map[self.super_label]
+        valid_labels = self.super_label_map[self.super_label]
         self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
         self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
 
+    def update_labels(self):
         if self.super_label == 1: 
             self.training['task_a_label'] = self.training['task_a_label'] - 4
             self.validation['task_a_label'] = self.validation['task_a_label'] - 4
@@ -92,8 +91,7 @@ class SingleLabel(Model):
             self.training['task_a_label'] = self.training['task_a_label'] - 13
             self.validation['task_a_label'] = self.validation['task_a_label'] - 13
         
-        
-
+    
     def recover_original_label(self):
         if self.super_label == 1: 
             self.training['task_a_label'] = self.training['task_a_label'] + 4
@@ -145,8 +143,9 @@ if __name__ == '__main__':
     # SuperLabel: 0.81
     # Train and evaluate the super model
     super_model = SuperLabel()
-    super_model.train_model()
-    super_model.evaluate_model()
+    #super_model.train_model(super_label=True)
+    super_model.evaluate_model(super_label=True)
+    
     #super_model.generate_submission(ensamble=True) TODO
 
     # Store the submission results for each subclass
@@ -154,15 +153,21 @@ if __name__ == '__main__':
 
 
     # Without Tuning
-    # Label0: 0.76
+    # Label0: 0.82
     # Label1: 0.80
     # Label2: 0.71
     # Label3: 0.90
-    # Average: 0.7925
+    # Average:
     for super_class in range(4):
         model = SingleLabel(super_class)
-        #model.train_model()
-        # model.evaluate_model()
+        vali, sub = super_model.split_data(super_class)
+        print(model.validation)
+        print(vali)
+        #model.validation = vali
+        #model.submission = sub
+        model.update_labels()
+        model.train_model()
+        model.evaluate_model()
         model.recover_original_label()
         
         # TODO 
