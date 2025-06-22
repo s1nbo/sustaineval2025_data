@@ -143,7 +143,7 @@ if __name__ == '__main__':
     # SuperLabel: 0.81
     # Train and evaluate the super model
     super_model = SuperLabel()
-    #super_model.train_model(super_label=True)
+    super_model.train_model(super_label=True)
     super_model.evaluate_model(super_label=True)
     
     #super_model.generate_submission(ensamble=True) TODO
@@ -163,8 +163,8 @@ if __name__ == '__main__':
         vali, sub = super_model.split_data(super_class)
         print(model.validation)
         print(vali)
-        #model.validation = vali
-        #model.submission = sub
+        model.validation = vali
+        model.submission = sub
         model.update_labels()
         model.train_model()
         model.evaluate_model()
