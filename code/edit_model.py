@@ -278,6 +278,7 @@ class ModelEdit:
         if ensamble:
             return y_pred
 
+
     def generate_submission(self, ensamble: bool = False):
         model = AutoModel_manual(
             pretrained=self.pretrained_model_name,
@@ -334,6 +335,7 @@ class ModelEdit:
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
+    # TODO
     def optuna_training(self, n_trials=20, wandb_project="sustaineval"):
         '''
         Uses Optuna training instead of WandB sweep training.
