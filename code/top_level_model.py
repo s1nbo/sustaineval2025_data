@@ -139,6 +139,7 @@ def generate_super_class_submission(*submissions, result_path):
 
 if __name__ == '__main__':
     
+    # TODO
     # Tuning
     # SuperLabel: 0.81
     # Train and evaluate the super model
@@ -151,7 +152,7 @@ if __name__ == '__main__':
     # Store the submission results for each subclass
     subclass_submissions = []
 
-
+    # TODO
     # Without Tuning
     # Label0: 0.82
     # Label1: 0.80
