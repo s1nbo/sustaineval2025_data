@@ -63,14 +63,13 @@ class Model:
             if 'task_a_label' in current_file.columns:
                 current_file['task_a_label'] = current_file['task_a_label'].apply(lambda x : x-1 if isinstance(x, int) else x)
                 # for top level class
-                if top_class and not(file_name == target): # TODO does this work?
+                if top_class and not(file_name == target):
                     current_file['super_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
                 
                 # drop all columns with 'task_a_label" != 0,1,2
                 if file_name == 'generated':
                     current_file = current_file[current_file['task_a_label'].isin([10,8])]
                    
-
             if file_name == target:
                 self.submission = current_file
             elif file_name == 'development':
@@ -180,7 +179,7 @@ class Model:
         self.tokenizer.save_pretrained(self.model_directory)
     
     # Loads the model and tokenizer and evaluates the model on the given data
-    def evaluate_model(self, ensamble: bool = False,  super_label: bool = False):
+    def evaluate_model(self, ensamble: bool = False,  super_label: bool = False, early_stop: bool = False):
         target = 'task_a_label' if not super_label else 'super_label'
         pred_name = 'predicted_label' if not super_label else 'super_prediction'
 
@@ -232,6 +231,8 @@ class Model:
         # Accuracy 
         acc = accuracy_score(y_true, y_pred)
         print(f'Accuracy: {acc:.4f}')
+
+        if early_stop: return
 
         # Classification Report
         with open(os.path.join(self.result_path, 'classification_report.txt'), 'w', encoding='utf-8') as f:
@@ -317,7 +318,7 @@ class Model:
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
-                f.write (f"{prediction[1]['id']},{prediction[1][prediction]}\n")
+                f.write (f"{prediction[1]['id']},{prediction[1][pred_name]}\n")
 
 
 

@@ -87,10 +87,6 @@ class Model_Ensamble(Model):
 
         return ensemble_preds, ensemble_confidences
                          
-    # TODO Maybe we want to weight models differently
-    def hypertune_prediciton_weights(self):
-        pass
-
     def generate_ensamble_submission(self):
         self.ensamble_submission = []
         self.confidence_submission = []

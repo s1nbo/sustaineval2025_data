@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 '''
-Without tuning the Models I've reached 0.64 Accuracy (0.81*0.79).
+Without tuning the Models I've reached 0.68 Accuracy (0.81*0.84).
 '''
 
 class SuperLabel(Model):
@@ -80,7 +80,13 @@ class SingleLabel(Model):
             3: [13, 14, 15, 16, 17, 18, 19]
         } 
 
-        self.training = self.training[self.training['task_a_label'].isin(self.super_label_map[self.super_label])]
+        valid_labels = self.super_label_map.get(self.super_label)
+        self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
+
+    def filter_validation(self):
+        valid_labels = self.super_label_map.get(self.super_label)
+        self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
+        print(len(self.validation))
 
 
     def update_labels(self):
@@ -140,17 +146,18 @@ if __name__ == '__main__':
 
     # TODO
     # Without Tuning
-    # Label0: 0.82
-    # Label1: 0.80
-    # Label2: 0.71
-    # Label3: 0.90
-    # Average:
+    # Label0: 0.78
+    # Label1: 0.89
+    # Label2: 0.83
+    # Label3: 0.85
+    # Average: 84
     for super_class in range(4):
         model = SingleLabel(super_class)
         model.validation, model.submission = super_model.split_data(super_class)
+        model.filter_validation()
         model.update_labels()
         model.train_model()
-        model.evaluate_model()
+        model.evaluate_model(early_stop=True)
         model.recover_original_label()
         
         # TODO 
