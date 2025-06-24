@@ -43,7 +43,9 @@ class Model:
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
         self.submission = pd.DataFrame()
-        self.data_files = ['trial', 'training','development',  target] 
+        #self.data_files = ['trial', 'training','development', 'generated', 'synonym', target]
+        #self.data_files = ['trial', 'training','development', target]
+        self.data_files = ['trial', 'training','development', target]
 
         for file_name in self.data_files:
             # Read data from jsonl files
@@ -63,6 +65,11 @@ class Model:
                 # for top level class
                 if top_class and not(file_name == target): # TODO does this work?
                     current_file['super_label'] = current_file['task_a_label'].apply(lambda x : self.top_level_labels[x])
+                
+                # drop all columns with 'task_a_label" != 0,1,2
+                if file_name == 'generated':
+                    current_file = current_file[current_file['task_a_label'].isin([10,8])]
+                   
 
             if file_name == target:
                 self.submission = current_file
@@ -93,7 +100,7 @@ class Model:
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
         self.epochs = 9             # How many epochs to train
-        self.learning_rate = 0.0000552097081360975   # Learning rate for the optimizer, smaller = more stable
+        self.learning_rate = 5.52097081360975e-05   # Learning rate for the optimizer, smaller = more stable
         self.weight_decay = 0.2565944748855663   # L2-regularization, to prevent overfitting
         self.batch_size = 16
         self.warmup_ratio = 0.2831286306175864
@@ -157,7 +164,7 @@ class Model:
             compute_metrics=lambda p: {
                 "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
             },
-            callbacks=[EarlyStoppingCallback(early_stopping_patience=2)]
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
         )
 
         # Training
@@ -320,7 +327,7 @@ class Model:
             self.pretrained_model_name = 'deepset/gbert-base'
             self.learning_rate = trial.suggest_float("learning_rate", 0.00002, 0.00015)
             self.weight_decay = trial.suggest_float("weight_decay", 0.12, 0.35)
-            self.batch_size = trial.suggest_categorical("batch_size", [4, 32])
+            #self.batch_size = trial.suggest_categorical("batch_size", [4, 32])
             self.batch_size = 16
             self.epochs = trial.suggest_int("epochs", 8, 12)
             self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.23, 0.35)
@@ -389,7 +396,7 @@ class Model:
                     "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
                 },
                 callbacks=[
-                EarlyStoppingCallback(early_stopping_patience=2),
+                EarlyStoppingCallback(early_stopping_patience=3),
                 EarlyStoppingWandbLoggerCallback()
                 ]
             )
