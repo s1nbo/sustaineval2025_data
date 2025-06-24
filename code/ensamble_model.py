@@ -7,7 +7,7 @@ from collections import defaultdict
 
 class Model_Ensamble(Model):
     
-    def load_models(self, *model_paths, confidence: bool = False):
+    def load_models(self, *model_paths, confidence: bool = True):
         num_models = len(model_paths)
 
         if num_models % 2 == 0:
@@ -65,7 +65,7 @@ class Model_Ensamble(Model):
             confidence_per_sample = list(zip(*self.confidence))
 
         # Confidence is implemented, however it works better without.
-        if not self.use_confidence:
+        if self.use_confidence:
             confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
@@ -109,14 +109,4 @@ class Model_Ensamble(Model):
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
 
 
-if __name__ == '__main__':
-    e = Model_Ensamble()
-    e.load_models('798', '878', '979', 'checkpoints', '899')
-    e.evaluate_ensamble_models()
-    e.generate_ensamble_submission()
-    
-    # '899', '837' remove these, they are dragging the ensamble down around 0.004 (.4%)
-
-
-
-# TODO Maybe make everything a Dict so the values are confirmed ID bound 
+# TODO Maybe make everything a Dict so the values are confirmed ID bound, but should be anyway
