@@ -37,8 +37,8 @@ class SuperLabel(Model):
         super_model.generate_submission(super_label=True)
         have to be called first
         '''
-        super_label_vali = self.validation[self.validation['predicted_label'] == super_label]
-        super_label_sub = self.submission[self.submission['super_label'] == super_label]
+        super_label_vali = self.validation[self.validation['super_prediction'] == super_label]
+        super_label_sub = self.submission[self.submission['super_prediction'] == super_label]
 
         return super_label_vali, super_label_sub
 
@@ -80,54 +80,41 @@ class SingleLabel(Model):
             3: [13, 14, 15, 16, 17, 18, 19]
         } 
 
-        valid_labels = self.super_label_map[self.super_label]
-        self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
-        self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
+        self.training = self.training[self.training['task_a_label'].isin(self.super_label_map[self.super_label])]
+
 
     def update_labels(self):
         if self.super_label == 1: 
-            self.training['task_a_label'] = self.training['task_a_label'] - 4
-            self.validation['task_a_label'] = self.validation['task_a_label'] - 4
-
+            self.training['task_a_label'] -= 4
+            self.validation['task_a_label'] -= 4
         if self.super_label == 2: 
-            self.training['task_a_label'] = self.training['task_a_label'] - 10
-            self.validation['task_a_label'] = self.validation['task_a_label'] - 10
-        
+            self.training['task_a_label'] -= 10 
+            self.validation['task_a_label'] -= 10
         if self.super_label == 3: 
-            self.training['task_a_label'] = self.training['task_a_label'] - 13
-            self.validation['task_a_label'] = self.validation['task_a_label'] - 13
-        
+            self.training['task_a_label'] -= 13
+            self.validation['task_a_label'] -= 13
     
     def recover_original_label(self):
         if self.super_label == 1: 
-            self.training['task_a_label'] = self.training['task_a_label'] + 4
-            self.validation['task_a_label'] = self.validation['task_a_label'] + 4
-            # self.validation['predicted_label'] = self.validation['predicted_label'] + 4 TODO
-
+            self.training['task_a_label'] += 4
+            self.validation['task_a_label'] += 4
+            self.validation['predicted_label'] += 4
         if self.super_label == 2: 
-            self.training['task_a_label'] = self.training['task_a_label'] + 10
-            self.validation['task_a_label'] = self.validation['task_a_label'] + 10
-            # self.validation['predicted_label'] = self.validation['predicted_label'] + 10 TODO
-        
+            self.training['task_a_label'] += 10 
+            self.validation['task_a_label'] += 10
+            self.validation['predicted_label'] += 10 
         if self.super_label == 3: 
-            self.training['task_a_label'] = self.training['task_a_label'] + 13
-            self.validation['task_a_label'] = self.validation['task_a_label'] + 13
-            # self.validation['predicted_label'] = self.validation['predicted_label'] + 13 TODO
-
-    def split_data(self, submission):
-            self.submission =  submission[submission['predicted_label'] == self.super_label]
+            self.training['task_a_label'] += 13
+            self.validation['task_a_label'] += 13
+            self.validation['predicted_label'] += 13
         
-    # Train can be taken from Parent
     
-    # Do I really need this?
-    def eval_single_model(self, model_path):
-        self.model_directory = os.path.join(self.result_path, model_path)
-        pred, conf = self.evaluate_model(ensamble=True)
-        return pred
+    
+    def load_model(self, model:str):
+        self.model_directory = os.path.join(self.result_path, model)
         
     # for generate submission we can use ensamble = True and only take first value
 
-    # optuna_training can also be taken from Parent 
         
 
 def generate_super_class_submission(*submissions, result_path):
@@ -141,8 +128,6 @@ def generate_super_class_submission(*submissions, result_path):
         for _, prediction in all_predictions.iterrows():
             f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
-
-
 if __name__ == '__main__':
     # TODO Tuning
     super_model = SuperLabel()
@@ -150,11 +135,9 @@ if __name__ == '__main__':
     super_model.evaluate_model(super_label=True)
     super_model.generate_submission(super_label=True)
 
-
     # Store the submission results for each subclass
     subclass_submissions = []
 
-    
     # TODO
     # Without Tuning
     # Label0: 0.82
@@ -164,11 +147,7 @@ if __name__ == '__main__':
     # Average:
     for super_class in range(4):
         model = SingleLabel(super_class)
-        vali, sub = super_model.split_data(super_class)
-        print(model.validation)
-        print(vali)
-        model.validation = vali
-        model.submission = sub
+        model.validation, model.submission = super_model.split_data(super_class)
         model.update_labels()
         model.train_model()
         model.evaluate_model()
