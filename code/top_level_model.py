@@ -3,7 +3,7 @@ import os
 import pandas as pd
 
 '''
-Without tuning the Models I've reached 0.68 Accuracy (0.81*0.84).
+Without tuning the Models I've reached 0.72 Accuracy (0.8127*0.88625).
 '''
 
 class SuperLabel(Model):
@@ -137,20 +137,41 @@ def generate_super_class_submission(*submissions, result_path):
 if __name__ == '__main__':
     # TODO Tuning
     super_model = SuperLabel()
+    #super_model.optuna_training(super_label=True, n_trials=25, wandb_project='SuperLabel')
     super_model.load_model('super_75')
     super_model.evaluate_model(super_label=True)
     super_model.generate_submission(super_label=True)
 
+
+    model = SingleLabel(2)
+    model.validation, model.submission = super_model.split_data(2)
+    model.filter_validation()
+    model.update_labels()
+    model.optuna_training(super_label=False, n_trials=25, wandb_project='Label2')
+
+    model = SingleLabel(3)
+    model.validation, model.submission = super_model.split_data(3)
+    model.filter_validation()
+    model.update_labels()
+    model.optuna_training(super_label=False, n_trials=25, wandb_project='Label3')
+
+    super_model2 = SuperLabel()
+    super_model2.optuna_training(super_label=True, n_trials=200, wandb_project='SuperLabel')
+
+    
+    '''
     # Store the submission results for each subclass
     subclass_submissions = []
 
     # TODO
     # Without Tuning
-    # Label0: 0.78
-    # Label1: 0.89
-    # Label2: 0.83
-    # Label3: 0.85
-    # Average: 84
+    # Label0: 87.5
+    # Label1: 90
+    # Label2: 87
+    # Label3: 90
+    # Average: 88,625
+    
+    
     for super_class in range(4):
         model = SingleLabel(super_class)
         model.validation, model.submission = super_model.split_data(super_class)
@@ -164,7 +185,7 @@ if __name__ == '__main__':
         # model.split_data(super_model.submission)
         # submission, _ = model.generate_submission(ensamble=True)
         # subclass_submissions.append(submission)
-   
+    '''
     
     
     #Generate final combined submission
