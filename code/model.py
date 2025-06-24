@@ -333,12 +333,12 @@ class Model:
             # deepset/gbert-base superior model
             #self.pretrained_model_name = trial.suggest_categorical("model_name", ['deepset/gbert-base', 'bert-base-german-cased'])
             self.pretrained_model_name = 'deepset/gbert-base'
-            self.learning_rate = trial.suggest_float("learning_rate", 0.00002, 0.00015)
-            self.weight_decay = trial.suggest_float("weight_decay", 0.12, 0.35)
-            #self.batch_size = trial.suggest_categorical("batch_size", [4, 32])
+            self.learning_rate = trial.suggest_float("learning_rate", 0.00002, 0.0003)
+            self.weight_decay = trial.suggest_float("weight_decay", 0.05, 0.35)
+            #self.batch_size = trial.suggest_categorical("batch_size", [])
             self.batch_size = 16
             self.epochs = trial.suggest_int("epochs", 8, 12)
-            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.23, 0.35)
+            self.warmup_ratio = trial.suggest_float("warmup_ratio", 0.05, 0.35)
 
             wandb.init(
                 project=wandb_project,
