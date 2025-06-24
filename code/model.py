@@ -262,7 +262,9 @@ class Model:
         if ensamble:
             return self.validation['predicted_label'], self.validation['confidence_score']
 
-    def generate_submission(self, ensamble: bool = False):
+    def generate_submission(self, ensamble: bool = False, super_label: bool = False):
+        target = 'predicted_label' if not super_label else 'super_label'
+
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_directory)
@@ -299,20 +301,24 @@ class Model:
                     predictions.append((pred.item(), prob[pred].item()))
 
         
-        
         # Save predictions to DataFrame and add one
-        self.submission['predicted_label'] = [p[0] + 1 for p in predictions]
+        if super_label:
+            self.submission[target] = [p[0] for p in predictions]
+        else:
+            self.submission[target] = [p[0] + 1 for p in predictions]
+        
         self.submission['confidence_score'] = [p[1] for p in predictions]
 
         if ensamble:
-            return self.submission['predicted_label'], self.submission['confidence_score']
-
+            return self.submission[target], self.submission['confidence_score']
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
-                f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
+                f.write (f"{prediction[1]['id']},{prediction[1][target]}\n")
+
+
 
     def optuna_training(self, n_trials=20, wandb_project="sustaineval", super_label: bool = False):
         '''

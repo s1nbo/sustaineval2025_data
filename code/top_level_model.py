@@ -26,17 +26,23 @@ class SuperLabel(Model):
         }
 
         self.load_data(top_class=True)
-        
     
-    def split_data(self, super_label:int):
-        # Splits data based on prediction
-        self.validation = self.validation[self.validation['predicted_label'] == super_label]
-        #self.submission = self.submission[self.submission['predicted_label'] == super_label]
+    def load_model(self, model:str):
+        self.model_directory = os.path.join(self.result_path, model)
 
-        return self.validation, self.submission
-    
-    # Use self.generate_submission(ensamble=True) to get submission data
-    
+    def split_data(self, super_label:int):
+        '''
+        Before calling the functions
+        self.evaluate_model(super_label=True) and 
+        super_model.generate_submission(super_label=True)
+        have to be called first
+        '''
+        super_label_vali = self.validation[self.validation['predicted_label'] == super_label]
+        super_label_sub = self.submission[self.submission['super_label'] == super_label]
+
+        return super_label_vali, super_label_sub
+
+
 class SingleLabel(Model):
     def __init__(self, super_label: int):
         Model.__init__(self)
@@ -138,20 +144,17 @@ def generate_super_class_submission(*submissions, result_path):
 
 
 if __name__ == '__main__':
-    
-    # TODO
-    # Tuning
-    # SuperLabel: 0.81
-    # Train and evaluate the super model
+    # TODO Tuning
     super_model = SuperLabel()
-    super_model.train_model(super_label=True)
+    super_model.load_model('super_75')
     super_model.evaluate_model(super_label=True)
-    
-    #super_model.generate_submission(ensamble=True) TODO
+    super_model.generate_submission(super_label=True)
+
 
     # Store the submission results for each subclass
     subclass_submissions = []
 
+    
     # TODO
     # Without Tuning
     # Label0: 0.82
@@ -175,8 +178,8 @@ if __name__ == '__main__':
         # model.split_data(super_model.submission)
         # submission, _ = model.generate_submission(ensamble=True)
         # subclass_submissions.append(submission)
-    '''
-    '''
+   
+    
     
     #Generate final combined submission
     #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)

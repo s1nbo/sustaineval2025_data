@@ -7,7 +7,7 @@ from collections import defaultdict
 
 class Model_Ensamble(Model):
     
-    def load_models(self, *model_paths):
+    def load_models(self, *model_paths, confidence: bool = False):
         num_models = len(model_paths)
 
         if num_models % 2 == 0:
@@ -15,7 +15,7 @@ class Model_Ensamble(Model):
         
         self.models = model_paths
         print(f'Using Models: {self.models}')
-        self.confidence = False
+        self.use_confidence = confidence
 
     def evaluate_ensamble_models(self):
         """
@@ -65,7 +65,7 @@ class Model_Ensamble(Model):
             confidence_per_sample = list(zip(*self.confidence))
 
         # Confidence is implemented, however it works better without.
-        if not self.confidence:
+        if not self.use_confidence:
             confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
