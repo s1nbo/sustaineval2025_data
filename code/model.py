@@ -182,7 +182,7 @@ class Model:
     # Loads the model and tokenizer and evaluates the model on the given data
     def evaluate_model(self, ensamble: bool = False,  super_label: bool = False):
         target = 'task_a_label' if not super_label else 'super_label'
-        prediction = 'predicted_label' if not super_label else 'super_prediction'
+        pred_name = 'predicted_label' if not super_label else 'super_prediction'
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
@@ -222,12 +222,12 @@ class Model:
                     predictions.append((pred.item(), prob[pred].item()))
 
         # Save predictions to DataFrame
-        self.validation[prediction] = [p[0] for p in predictions]
+        self.validation[pred_name] = [p[0] for p in predictions]
         self.validation['confidence_score'] = [p[1] for p in predictions]
         
         # Calculate and save metrics
         y_true =  self.validation[target]
-        y_pred =  self.validation[prediction]
+        y_pred =  self.validation[pred_name]
 
         # Accuracy 
         acc = accuracy_score(y_true, y_pred)
@@ -261,10 +261,10 @@ class Model:
             f.write(f'Warmup ratio: {self.warmup_ratio}\n')
 
         if ensamble:
-            return self.validation[prediction], self.validation['confidence_score']
+            return self.validation[pred_name], self.validation['confidence_score']
 
     def generate_submission(self, ensamble: bool = False, super_label: bool = False):
-        prediction = 'predicted_label' if not super_label else 'super_prediction'
+        pred_name = 'predicted_label' if not super_label else 'super_prediction'
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
         model.eval()
@@ -304,14 +304,14 @@ class Model:
         
         # Save predictions to DataFrame and add one
         if super_label:
-            self.submission[prediction] = [p[0] for p in predictions]
+            self.submission[pred_name] = [p[0] for p in predictions]
         else:
-            self.submission[prediction] = [p[0] + 1 for p in predictions]
+            self.submission[pred_name] = [p[0] + 1 for p in predictions]
         
         self.submission['confidence_score'] = [p[1] for p in predictions]
 
         if ensamble:
-            return self.submission[prediction], self.submission['confidence_score']
+            return self.submission[pred_name], self.submission['confidence_score']
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
