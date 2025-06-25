@@ -2,9 +2,7 @@ from model import Model
 import os
 import pandas as pd
 
-'''
-Without tuning the Models I've reached 0.72 Accuracy (0.8127*0.88625).
-'''
+
 
 class SuperLabel(Model):
     def __init__(self):
@@ -114,8 +112,6 @@ class SingleLabel(Model):
             self.validation['task_a_label'] += 13
             self.validation['predicted_label'] += 13
         
-    
-    
     def load_model(self, model:str):
         self.model_directory = os.path.join(self.result_path, model)
         
@@ -135,58 +131,70 @@ def generate_super_class_submission(*submissions, result_path):
             f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
 if __name__ == '__main__':
-    # TODO Tuning
     super_model = SuperLabel()
-    #super_model.optuna_training(super_label=True, n_trials=25, wandb_project='SuperLabel')
     super_model.load_model('super_75')
     super_model.evaluate_model(super_label=True)
     super_model.generate_submission(super_label=True)
 
-
-    model = SingleLabel(2)
-    model.validation, model.submission = super_model.split_data(2)
-    model.filter_validation()
-    model.update_labels()
-    model.optuna_training(super_label=False, n_trials=25, wandb_project='Label2')
-
-    model = SingleLabel(3)
-    model.validation, model.submission = super_model.split_data(3)
-    model.filter_validation()
-    model.update_labels()
-    model.optuna_training(super_label=False, n_trials=25, wandb_project='Label3')
-
-    super_model2 = SuperLabel()
-    super_model2.optuna_training(super_label=True, n_trials=200, wandb_project='SuperLabel')
-
-    
-    '''
     # Store the submission results for each subclass
     subclass_submissions = []
+    model_paths = []
 
-    # TODO
-    # Without Tuning
-    # Label0: 87.5
-    # Label1: 90
-    # Label2: 87
-    # Label3: 90
-    # Average: 88,625
-    
-    
+    # For final submission TODO
     for super_class in range(4):
         model = SingleLabel(super_class)
+        model.load_model(model_paths[super_class])
         model.validation, model.submission = super_model.split_data(super_class)
-        model.filter_validation()
         model.update_labels()
-        model.train_model()
         model.evaluate_model(early_stop=True)
         model.recover_original_label()
-        
-        # TODO 
-        # model.split_data(super_model.submission)
-        # submission, _ = model.generate_submission(ensamble=True)
-        # subclass_submissions.append(submission)
-    '''
+        submission, _ = model.generate_submission(ensamble=True)
+        subclass_submissions.append(submission)
+        generate_super_class_submission(subclass_submissions, model.result_path)
+
     
     
-    #Generate final combined submission
-    #generate_super_class_submission(*subclass_submissions, result_path=model.result_path)
+
+
+
+
+"""
+Without tuning the Models I've reached 0.72 Accuracy (0.8127*0.88625).
+
+# Without
+# Label0: 0.875
+# Label1: 0.90
+# Label2: 0.87
+# Label3: 0.90
+# Average: 0.88625
+
+Training: (Obviosuly could have been a for loop)
+
+model = SingleLabel(0)
+model.validation, model.submission = super_model.split_data(0)
+model.filter_validation()
+model.update_labels()
+model.optuna_training(super_label=False, n_trials=25, wandb_project='Label0')
+
+model = SingleLabel(1)
+model.validation, model.submission = super_model.split_data(1)
+model.filter_validation()
+model.update_labels()
+model.optuna_training(super_label=False, n_trials=25, wandb_project='Label1')
+
+model = SingleLabel(2)
+model.validation, model.submission = super_model.split_data(2)
+model.filter_validation()
+model.update_labels()
+model.optuna_training(super_label=False, n_trials=25, wandb_project='Label2')
+
+model = SingleLabel(3)
+model.validation, model.submission = super_model.split_data(3)
+model.filter_validation()
+model.update_labels()
+model.optuna_training(super_label=False, n_trials=25, wandb_project='Label3')
+
+super_model2 = SuperLabel()
+super_model2.optuna_training(super_label=True, n_trials=200, wandb_project='SuperLabel')
+
+"""

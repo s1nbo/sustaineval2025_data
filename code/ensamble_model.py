@@ -7,7 +7,7 @@ from collections import defaultdict
 
 class Model_Ensamble(Model):
     
-    def load_models(self, *model_paths, confidence: bool = True):
+    def load_models(self, *model_paths, confidence: bool = True, top_level = None):
         num_models = len(model_paths)
 
         if num_models % 2 == 0:
@@ -17,7 +17,7 @@ class Model_Ensamble(Model):
         print(f'Using Models: {self.models}')
         self.use_confidence = confidence
 
-    def evaluate_ensamble_models(self):
+    def evaluate_ensamble_models(self, top_level: bool = False):
         """
         Parameters:
             model_paths: Variable amount of directory names inside the results directory.
@@ -52,7 +52,7 @@ class Model_Ensamble(Model):
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
         
-    def ensamble_prediction(self, submission: bool):
+    def ensamble_prediction(self, submission: bool, top_level: bool = False):
         """
         Computes the accuracy of the ensemble model using majority voting.
         """
@@ -87,7 +87,7 @@ class Model_Ensamble(Model):
 
         return ensemble_preds, ensemble_confidences
                          
-    def generate_ensamble_submission(self):
+    def generate_ensamble_submission(self, top_level: bool = False):
         self.ensamble_submission = []
         self.confidence_submission = []
         for model in self.models:
@@ -96,13 +96,12 @@ class Model_Ensamble(Model):
             self.ensamble_submission.append(pred)
             self.confidence_submission.append(conf)
 
-        self.submission['predicted_label'], _ = self.ensamble_prediction(submission=True)
+        self.submission['predicted_label'], _ = self.ensamble_prediction(submission=True, top_level = top_level)
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
-
 
 # TODO Maybe make everything a Dict so the values are confirmed ID bound, but should be anyway
