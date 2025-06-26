@@ -7,7 +7,7 @@ from collections import defaultdict
 
 class Model_Ensamble(Model):
     
-    def load_models(self, *model_paths, confidence: bool = True, top_level = None):
+    def load_models(self, *model_paths, confidence: bool = False, top_level = None):
         num_models = len(model_paths)
 
         if num_models % 2 == 0:
@@ -65,7 +65,7 @@ class Model_Ensamble(Model):
             confidence_per_sample = list(zip(*self.confidence))
 
         # Confidence is implemented, however it works better without.
-        if self.use_confidence:
+        if not self.use_confidence:
             confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
 
         ensemble_preds = []
@@ -80,10 +80,10 @@ class Model_Ensamble(Model):
 
             # Select label with highest total weight (confidence sum)
             majority_label = max(weighted_votes.items(), key=lambda x: x[1])[0]
-            total_weight = weighted_votes[majority_label]
+            #total_weight = weighted_votes[majority_label]
 
             ensemble_preds.append(majority_label)
-            ensemble_confidences.append(total_weight)
+            #ensemble_confidences.append(total_weight)
 
         return ensemble_preds, ensemble_confidences
                          
@@ -103,5 +103,3 @@ class Model_Ensamble(Model):
             f.write('id,label\n')
             for prediction in self.submission.iterrows():
                 f.write (f"{prediction[1]['id']},{prediction[1]['predicted_label']}\n")
-
-# TODO Maybe make everything a Dict so the values are confirmed ID bound, but should be anyway

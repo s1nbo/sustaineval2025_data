@@ -5,7 +5,7 @@ import pandas as pd
 
 
 class SuperLabel(Model):
-    def __init__(self):
+    def __init__(self, path:str = None):
         self.setup()
 
         self.label_name = ['Strategy', 'Process Management', 'Environment', 'Society']
@@ -24,6 +24,7 @@ class SuperLabel(Model):
         }
 
         self.load_data(top_class=True)
+        if path: self.load_model(model=path)
     
     def load_model(self, model:str):
         self.model_directory = os.path.join(self.result_path, model)
@@ -42,7 +43,7 @@ class SuperLabel(Model):
 
 
 class SingleLabel(Model):
-    def __init__(self, super_label: int):
+    def __init__(self, super_label: int, path:str = None):
         Model.__init__(self)
         self.super_label = super_label
 
@@ -81,11 +82,14 @@ class SingleLabel(Model):
         valid_labels = self.super_label_map.get(self.super_label)
         self.training = self.training[self.training['task_a_label'].isin(valid_labels)]
 
+        if path: self.load_model(model=path)
+    
+    def load_model(self, model:str):
+        self.model_directory = os.path.join(self.result_path, model)
+
     def filter_validation(self):
         valid_labels = self.super_label_map.get(self.super_label)
         self.validation = self.validation[self.validation['task_a_label'].isin(valid_labels)]
-        print(len(self.validation))
-
 
     def update_labels(self):
         if self.super_label == 1: 
@@ -103,55 +107,57 @@ class SingleLabel(Model):
             self.training['task_a_label'] += 4
             self.validation['task_a_label'] += 4
             self.validation['predicted_label'] += 4
+            self.submission['predicted_label'] += 4
         if self.super_label == 2: 
             self.training['task_a_label'] += 10 
             self.validation['task_a_label'] += 10
-            self.validation['predicted_label'] += 10 
+            self.validation['predicted_label'] += 10
+            self.submission['predicted_label'] += 10 
         if self.super_label == 3: 
             self.training['task_a_label'] += 13
             self.validation['task_a_label'] += 13
             self.validation['predicted_label'] += 13
-        
-    def load_model(self, model:str):
-        self.model_directory = os.path.join(self.result_path, model)
+            self.submission['predicted_label'] += 13
         
     # for generate submission we can use ensamble = True and only take first value
 
         
 
-def generate_super_class_submission(*submissions, result_path):
-    if len(submissions) != 4:
-        raise ValueError(f"Expected 4 submissions, but got {len(submissions)}.")
-    
-    all_predictions = pd.concat(submissions, ignore_index=True)
+def generate_super_class_submission(submission, result_path):  
     
     with open(os.path.join(result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
         f.write('id,label\n')
-        for _, prediction in all_predictions.iterrows():
+        for _, prediction in submission.iterrows():
             f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
 if __name__ == '__main__':
-    super_model = SuperLabel()
-    super_model.load_model('super_75')
+    super_model = SuperLabel('super')
     super_model.evaluate_model(super_label=True)
     super_model.generate_submission(super_label=True)
-
+   
     # Store the submission results for each subclass
-    subclass_submissions = []
-    model_paths = []
+    subclass_submissions = pd.DataFrame()
+    model_paths = ['label0', 'label1', 'label2', 'label3']
+
 
     # For final submission TODO
     for super_class in range(4):
-        model = SingleLabel(super_class)
-        model.load_model(model_paths[super_class])
+        model = SingleLabel(super_label=super_class, path=model_paths[super_class])
         model.validation, model.submission = super_model.split_data(super_class)
+        model.submission = model.submission.copy()
+        model.validation = model.validation.copy()
+        
+        model.filter_validation()
         model.update_labels()
         model.evaluate_model(early_stop=True)
+        model.generate_submission(early_stop=True)
         model.recover_original_label()
-        submission, _ = model.generate_submission(ensamble=True)
-        subclass_submissions.append(submission)
-        generate_super_class_submission(subclass_submissions, model.result_path)
-
+        
+        submission = model.submission[['id', 'predicted_label' , 'confidence_score']]
+        subclass_submissions = pd.concat([subclass_submissions, submission], ignore_index=True)
+    
+    generate_super_class_submission(subclass_submissions, result_path=model.result_path)
+    
     
     
 

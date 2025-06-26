@@ -43,9 +43,10 @@ class Model:
         self.training = pd.DataFrame()
         self.validation = pd.DataFrame()
         self.submission = pd.DataFrame()
-        #self.data_files = ['trial', 'training','development', 'generated', 'synonym', target]
-        #self.data_files = ['trial', 'training','development', target]
+        
         self.data_files = ['trial', 'training','development', target]
+        #self.data_files = ['trial', 'training','development', 'generated', target]
+        #self.data_files = ['trial', 'training','development', 'generated', 'synonym', target]
 
         for file_name in self.data_files:
             # Read data from jsonl files
@@ -98,11 +99,11 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.epochs = 9             # How many epochs to train
-        self.learning_rate = 5.52097081360975e-05   # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.2565944748855663   # L2-regularization, to prevent overfitting
+        self.epochs = 11             # How many epochs to train
+        self.learning_rate = 0.00012346259253663328  # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.18808186777318608  # L2-regularization, to prevent overfitting
         self.batch_size = 16
-        self.warmup_ratio = 0.2831286306175864
+        self.warmup_ratio = 0.10356796574836848
 
 
 
@@ -264,7 +265,7 @@ class Model:
         if ensamble:
             return self.validation[pred_name], self.validation['confidence_score']
 
-    def generate_submission(self, ensamble: bool = False, super_label: bool = False):
+    def generate_submission(self, ensamble: bool = False, super_label: bool = False, early_stop: bool = False):
         pred_name = 'predicted_label' if not super_label else 'super_prediction'
 
         model = AutoModelForSequenceClassification.from_pretrained(self.model_directory)
@@ -310,6 +311,8 @@ class Model:
             self.submission[pred_name] = [p[0] + 1 for p in predictions]
         
         self.submission['confidence_score'] = [p[1] for p in predictions]
+
+        if early_stop: return 
 
         if ensamble:
             return self.submission[pred_name], self.submission['confidence_score']
