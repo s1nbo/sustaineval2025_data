@@ -130,77 +130,10 @@ def generate_super_class_submission(submission, result_path):
         for _, prediction in submission.iterrows():
             f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
-if __name__ == '__main__':
-    super_model = SuperLabel('super')
-    super_model.evaluate_model(super_label=True)
-    super_model.generate_submission(super_label=True)
-   
-    # Store the submission results for each subclass
-    subclass_submissions = pd.DataFrame()
-    model_paths = ['label0', 'label1', 'label2', 'label3']
 
-
-    # For final submission TODO
-    for super_class in range(4):
-        model = SingleLabel(super_label=super_class, path=model_paths[super_class])
-        model.validation, model.submission = super_model.split_data(super_class)
-        model.submission = model.submission.copy()
-        model.validation = model.validation.copy()
-        
-        model.filter_validation()
-        model.update_labels()
-        model.evaluate_model(early_stop=True)
-        model.generate_submission(early_stop=True)
-        model.recover_original_label()
-        
-        submission = model.submission[['id', 'predicted_label' , 'confidence_score']]
-        subclass_submissions = pd.concat([subclass_submissions, submission], ignore_index=True)
-    
-    generate_super_class_submission(subclass_submissions, result_path=model.result_path)
-    
-    
-    
-
-
-
-
-"""
-Without tuning the Models I've reached 0.72 Accuracy (0.8127*0.88625).
-
-# Without
+#With  I've reached 0.72 Accuracy (0.8127*0.88625).
 # Label0: 0.875
 # Label1: 0.90
 # Label2: 0.87
 # Label3: 0.90
 # Average: 0.88625
-
-Training: (Obviosuly could have been a for loop)
-
-model = SingleLabel(0)
-model.validation, model.submission = super_model.split_data(0)
-model.filter_validation()
-model.update_labels()
-model.optuna_training(super_label=False, n_trials=25, wandb_project='Label0')
-
-model = SingleLabel(1)
-model.validation, model.submission = super_model.split_data(1)
-model.filter_validation()
-model.update_labels()
-model.optuna_training(super_label=False, n_trials=25, wandb_project='Label1')
-
-model = SingleLabel(2)
-model.validation, model.submission = super_model.split_data(2)
-model.filter_validation()
-model.update_labels()
-model.optuna_training(super_label=False, n_trials=25, wandb_project='Label2')
-
-model = SingleLabel(3)
-model.validation, model.submission = super_model.split_data(3)
-model.filter_validation()
-model.update_labels()
-model.optuna_training(super_label=False, n_trials=25, wandb_project='Label3')
-
-super_model2 = SuperLabel()
-super_model2.optuna_training(super_label=True, n_trials=200, wandb_project='SuperLabel')
-
-"""

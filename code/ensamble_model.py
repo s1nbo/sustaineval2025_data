@@ -3,11 +3,10 @@ import seaborn as sns
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from model import Model
 import os
-from collections import defaultdict
-
+from collections import defaultdict, Counter
 class Model_Ensamble(Model):
     
-    def load_models(self, *model_paths, confidence: bool = False, top_level = None):
+    def load_models(self, *model_paths, confidence: bool = False, weight: int = 1):
         num_models = len(model_paths)
 
         if num_models % 2 == 0:
@@ -16,20 +15,24 @@ class Model_Ensamble(Model):
         self.models = model_paths
         print(f'Using Models: {self.models}')
         self.use_confidence = confidence
+        self.weight = weight
 
-    def evaluate_ensamble_models(self, top_level: bool = False):
+    def evaluate_ensamble_models(self, top_level: bool = False, subclass = None):
         """
         Parameters:
             model_paths: Variable amount of directory names inside the results directory.
             Each directory should contain everything needed for a transformer model.
         """
         self.predictions = []
-        self.confidence = []
         for model in self.models:
             self.model_directory = os.path.join(self.result_path, model)
-            pred, conf = self.evaluate_model(ensamble=True)
-            self.predictions.append(pred)
-            self.confidence.append(conf)
+            pred = self.evaluate_model(ensamble=True) # returns dataframe with id, prediction and confidence
+            self.predictions.append(pred) # list of dataframes
+        
+        if top_level:
+            for i in range(self.weight):
+                self.predictions.append(subclass[['id', 'predicted_label', 'confidence_score']])
+
 
         y_true =  self.validation['task_a_label']
         ensemble_preds, _ = self.ensamble_prediction(submission=False)
@@ -52,21 +55,56 @@ class Model_Ensamble(Model):
         plt.tight_layout()
         plt.savefig(os.path.join(self.result_path, 'confusion_matrix.png'))
         
-    def ensamble_prediction(self, submission: bool, top_level: bool = False):
+    def ensamble_prediction(self, submission: bool):
         """
         Computes the accuracy of the ensemble model using majority voting.
         """
-        # Transpose to get predictions for each example across all models
-        if submission:
-            predictions_per_sample = list(zip(*self.ensamble_submission))
-            confidence_per_sample = list(zip(*self.confidence_submission))
-        else:
-            predictions_per_sample = list(zip(*self.predictions))
-            confidence_per_sample = list(zip(*self.confidence))
+        # TODO
+        # Submission or validation
+        dfs = self.ensamble_submission if submission else self.predictions
 
-        # Confidence is implemented, however it works better without.
-        if not self.use_confidence:
-            confidence_per_sample = [[1.0] * len(preds) for preds in predictions_per_sample]
+        # check for misisng data
+        all_ids = []
+        expected_count = len(dfs)
+
+        for df in dfs: all_ids.extend(df['id'].tolist())
+        
+        id_counts = Counter(all_ids)
+    
+        invalid_ids = [id for id, count in id_counts.items() if count != expected_count]
+        
+        if invalid_ids:
+            raise ValueError(f"The following IDs do not appear in all model outputs: {invalid_ids}")
+
+
+        # Merge all dataframes on 'id'
+        all_ids = dfs[0][['id']]
+        for df in dfs[1:]:
+            all_ids = all_ids.merge(df[['id']], on='id', how='inner')  # common ids
+
+        common_ids = all_ids['id'].tolist()
+
+        # Per sample prediction and confidence lists
+        predictions_per_sample = []
+        confidence_per_sample = []
+
+        for sample_id in common_ids:
+            preds = []
+            confs = []
+
+            for df in dfs:
+                row = df[df['id'] == sample_id].iloc[0]  # assuming ids are unique
+                preds.append(row['predicted_label'])
+
+                # Using the confidence decreases accuracy
+                if self.use_confidence:
+                    confs.append(row['confidence_score'])
+                else:
+                    confs.append(1.0)
+
+            predictions_per_sample.append(preds)
+            confidence_per_sample.append(confs)
+
 
         ensemble_preds = []
         ensemble_confidences = []
@@ -86,19 +124,23 @@ class Model_Ensamble(Model):
             #ensemble_confidences.append(total_weight)
 
         return ensemble_preds, ensemble_confidences
-                         
-    def generate_ensamble_submission(self, top_level: bool = False):
+
+         
+    def generate_ensamble_submission(self, top_level: bool = False, subclass = None):
         self.ensamble_submission = []
-        self.confidence_submission = []
         for model in self.models:
             self.model_directory = os.path.join(self.result_path, model)
-            pred, conf = self.generate_submission(ensamble=True)
-            self.ensamble_submission.append(pred)
-            self.confidence_submission.append(conf)
+            pred = self.generate_submission(ensamble=True) # returns dataframe with id, prediction and confidence
+            self.ensamble_submission.append(pred) # list of dataframes
+        
+        if top_level:
+            for i in range(self.weight):
+                self.ensamble_submission.append(subclass[['id', 'predicted_label', 'confidence_score']])
 
-        self.submission['predicted_label'], _ = self.ensamble_prediction(submission=True, top_level = top_level)
+        
+        self.submission['predicted_label'], _ = self.ensamble_prediction(submission=True)
 
-        # Save the predictions to a CSV file
+        # Save the predictions to a CSV filef
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
             f.write('id,label\n')
             for prediction in self.submission.iterrows():

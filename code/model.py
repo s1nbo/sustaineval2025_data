@@ -263,7 +263,7 @@ class Model:
             f.write(f'Warmup ratio: {self.warmup_ratio}\n')
 
         if ensamble:
-            return self.validation[pred_name], self.validation['confidence_score']
+            return self.validation[['id', pred_name, 'confidence_score']]
 
     def generate_submission(self, ensamble: bool = False, super_label: bool = False, early_stop: bool = False):
         pred_name = 'predicted_label' if not super_label else 'super_prediction'
@@ -315,7 +315,7 @@ class Model:
         if early_stop: return 
 
         if ensamble:
-            return self.submission[pred_name], self.submission['confidence_score']
+            return self.submission[['id', pred_name, 'confidence_score']]
 
         # Save the predictions to a CSV file
         with open(os.path.join(self.result_path, 'prediction_task_a.csv'), 'w', encoding='utf-8') as f:
