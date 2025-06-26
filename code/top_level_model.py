@@ -137,3 +137,28 @@ def generate_super_class_submission(submission, result_path):
 # Label2: 0.87
 # Label3: 0.90
 # Average: 0.88625
+
+if __name__ == '__main__':
+    super_model = SuperLabel()
+    super_model.load_model('super')
+    super_model.evaluate_model(super_label=True)
+    super_model.generate_submission(super_label=True)
+
+
+    # Train 
+    model = SingleLabel(0)
+    model.validation, model.submission = super_model.split_data(0)
+    model.submission = model.submission.copy()
+    model.validation = model.validation.copy()
+    model.filter_validation()
+    model.update_labels()
+    model.train_model()
+
+    # Evaluate
+    model = SingleLabel(0)
+    model.validation, model.submission = super_model.split_data(0)
+    model.submission = model.submission.copy()
+    model.validation = model.validation.copy()
+    model.update_labels()
+    model.evaluate_model(early_stop=True)
+    model.recover_original_label()
