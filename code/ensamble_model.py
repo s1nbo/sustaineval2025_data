@@ -7,7 +7,7 @@ from collections import defaultdict, Counter
 class Model_Ensamble(Model):
     
     def load_models(self, *model_paths, confidence: bool = False, weight: int = 1):
-        num_models = len(model_paths)
+        num_models = len(model_paths) + weight
 
         if num_models % 2 == 0:
             raise ValueError('Need odd number of models')

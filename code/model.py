@@ -99,11 +99,11 @@ class Model:
 
         # Model Configuration / These Paramaters are set by Optuna training
         self.pretrained_model_name = 'deepset/gbert-base'
-        self.epochs = 11             # How many epochs to train
-        self.learning_rate = 0.00012346259253663328  # Learning rate for the optimizer, smaller = more stable
-        self.weight_decay = 0.18808186777318608  # L2-regularization, to prevent overfitting
+        self.epochs = 10             # How many epochs to train
+        self.learning_rate = 0.00008428962100038299  # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.334478332392462  # L2-regularization, to prevent overfitting
         self.batch_size = 16
-        self.warmup_ratio = 0.10356796574836848
+        self.warmup_ratio = 0.34162703150843576
 
 
 
@@ -407,7 +407,7 @@ class Model:
                     "accuracy": accuracy_score(p.label_ids, p.predictions.argmax(-1))
                 },
                 callbacks=[
-                EarlyStoppingCallback(early_stopping_patience=3),
+                EarlyStoppingCallback(early_stopping_patience=2),
                 EarlyStoppingWandbLoggerCallback()
                 ]
             )

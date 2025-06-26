@@ -131,31 +131,30 @@ def generate_super_class_submission(submission, result_path):
             f.write (f"{prediction['id']},{prediction['predicted_label']}\n")
 
 
-#With  I've reached 0.72 Accuracy (0.8127*0.88625).
-# Label0: 0.875
-# Label1: 0.90
-# Label2: 0.87
-# Label3: 0.90
-# Average: 0.88625
+    '''
+    model = SingleLabel(0)
+    model.filter_validation()
+    model.update_labels()
+    model.optuna_training(super_label=False, n_trials=25, wandb_project='Label0')
+    '''
+
 
 if __name__ == '__main__':
+    '''
+    model = SingleLabel(0)
+    model.filter_validation()
+    model.update_labels()
+    model.train_model()
+    model.recover_original_label()
+    '''
+
+    # Evaluate
     super_model = SuperLabel()
     super_model.load_model('super')
     super_model.evaluate_model(super_label=True)
     super_model.generate_submission(super_label=True)
 
-
-    # Train 
-    model = SingleLabel(0)
-    model.validation, model.submission = super_model.split_data(0)
-    model.submission = model.submission.copy()
-    model.validation = model.validation.copy()
-    model.filter_validation()
-    model.update_labels()
-    model.train_model()
-
-    # Evaluate
-    model = SingleLabel(0)
+    model = SingleLabel(0, path='label0')
     model.validation, model.submission = super_model.split_data(0)
     model.submission = model.submission.copy()
     model.validation = model.validation.copy()

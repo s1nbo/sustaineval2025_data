@@ -67,7 +67,7 @@ def training():
 
 def main():
     s_vali, s_sub = twolayers()
-    ensamble(top_level=True, vali= s_vali,sub = s_sub, confidence=False, weight=0)
+    ensamble(top_level=True, vali= s_vali,sub = s_sub, confidence=False, weight=2)
 
 
 if __name__ == "__main__":
