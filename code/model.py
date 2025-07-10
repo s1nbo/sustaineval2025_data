@@ -105,6 +105,24 @@ class Model:
         self.batch_size = 16
         self.warmup_ratio = 0.34162703150843576
 
+        """
+        # 0.68 Improved Baseline
+        self.pretrained_model_name = 'deepset/gbert-base'
+        self.epochs = 10             # How many epochs to train
+        self.learning_rate = 0.00007336182194696851   # Learning rate for the optimizer, smaller = more stable
+        self.weight_decay = 0.25209871615317314    # L2-regularization, to prevent overfitting
+        self.batch_size = 16
+        self.warmup_ratio = 0.2627025280744802
+        
+        # Baseline
+        self.pretrained_model_name = 'bert-base-german-cased'
+        self.epochs = 8             
+        self.learning_rate = 2e-5   
+        self.weight_decay = 0.01  
+        self.warmup_ratio = 0.1
+        self.batch_size = 8 
+        """
+
 
 
     def train_model(self, super_label: bool = False):
